@@ -1,0 +1,3271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Crew Attendance Tracker</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="A simple, premium, offline-first attendance tracker for small concrete and construction crews. Manage crew, track locations, view histories, and review weekly billing reports.">
+  <meta name="theme-color" content="#4f46e5">
+  
+  <!-- PWA & Mobile Web App Capable -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================
+       1. DESIGN SYSTEM & ROOT VARIABLES
+       ========================================== */
+    :root {
+      /* Palette */
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131b2e;
+      --bg-tertiary: #1e293b;
+      --bg-card: rgba(30, 41, 59, 0.45);
+      --bg-card-hover: rgba(30, 41, 59, 0.65);
+      
+      --accent-indigo: #6366f1;
+      --accent-indigo-glow: rgba(99, 102, 241, 0.15);
+      --accent-indigo-hover: #4f46e5;
+      
+      /* Status Colors */
+      --color-present: #10b981;
+      --color-present-glow: rgba(16, 185, 129, 0.15);
+      
+      --color-absent: #f43f5e;
+      --color-absent-glow: rgba(244, 63, 94, 0.15);
+      
+      /* Text Colors */
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dark: #64748b;
+      
+      /* Borders & Shadows */
+      --border-color: rgba(255, 255, 255, 0.08);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      
+      /* Radii */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      
+      /* Layout Config */
+      --max-width: 900px;
+      --trans-speed: 0.2s;
+    }
+
+    /* Reset & Base Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 95px; /* Space for bottom nav */
+      min-height: 100vh;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-full);
+    }
+
+    /* Typography */
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 1.25rem;
+    }
+
+    /* Card Panel */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+      transition: border-color var(--trans-speed) ease, background var(--trans-speed) ease, transform var(--trans-speed) ease;
+    }
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .card-glow-present { border-left: 4px solid var(--color-present); }
+    .card-glow-absent { border-left: 4px solid var(--color-absent); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: all var(--trans-speed) cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .btn-primary {
+      background: var(--accent-indigo);
+      color: white;
+      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover {
+      background: var(--accent-indigo-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-danger {
+      background: var(--color-absent);
+      color: white;
+      box-shadow: 0 4px 10px rgba(244, 63, 94, 0.2);
+    }
+    .btn-danger:hover {
+      background: rgba(225, 29, 72, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .btn-icon-only {
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-icon-only:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Tri-State / Bi-State Buttons */
+    .status-btn-group {
+      display: flex;
+      gap: 0.4rem;
+      width: 100%;
+    }
+
+    .status-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0.4rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .status-btn .status-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke-width: 2.5;
+    }
+
+    .status-btn-present:hover {
+      background: var(--color-present-glow);
+      color: var(--color-present);
+      border-color: var(--color-present);
+    }
+    .status-btn-present.active {
+      background: var(--color-present);
+      color: white;
+      border-color: var(--color-present);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+
+    .status-btn-absent:hover {
+      background: var(--color-absent-glow);
+      color: var(--color-absent);
+      border-color: var(--color-absent);
+    }
+    .status-btn-absent.active {
+      background: var(--color-absent);
+      color: white;
+      border-color: var(--color-absent);
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-full);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-present { background: var(--color-present-glow); color: var(--color-present); }
+    .badge-absent { background: var(--color-absent-glow); color: var(--color-absent); }
+    .badge-unmarked { background: var(--bg-tertiary); color: var(--text-muted); }
+    .badge-archived { background: rgba(255, 255, 255, 0.03); color: var(--text-dark); border: 1px dashed var(--border-color); }
+    .badge-location { background: var(--accent-indigo-glow); color: var(--accent-indigo); border: 1px solid rgba(99, 102, 241, 0.2); }
+
+    /* Forms & Dropdowns */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .input-text, .dropdown-select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: all var(--trans-speed) ease;
+      outline: none;
+    }
+    .input-text:focus, .dropdown-select:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    /* Avatar Creator */
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: white;
+      font-size: 1rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .avatar-loc {
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%) !important;
+    }
+
+    /* Progress bar */
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-indigo) 0%, #06b6d4 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* ==========================================
+       2. NAVIGATION BAR & MAIN STRUCTURE
+       ========================================== */
+    header {
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 1.25rem;
+      max-width: var(--max-width);
+      margin: 0 auto;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-icon {
+      background: linear-gradient(135deg, var(--accent-indigo) 0%, #06b6d4 100%);
+      padding: 0.45rem;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      color: white;
+    }
+
+    .status-indicator-pill {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-present);
+      box-shadow: 0 0 6px var(--color-present);
+    }
+
+    /* Navigation Bar */
+    nav.bottom-nav {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 2rem);
+      max-width: 580px;
+      background: rgba(19, 27, 46, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 0.4rem;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.35rem 0.5rem;
+      border-radius: var(--radius-md);
+      transition: all var(--trans-speed) ease;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 0.7rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2.2;
+    }
+
+    .nav-item span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    .nav-item:hover {
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      color: var(--accent-indigo);
+      background: var(--accent-indigo-glow);
+    }
+
+    .nav-item.active svg {
+      transform: translateY(-1px);
+    }
+
+    /* Views Layout */
+    .view-panel {
+      display: none;
+      animation: fadeIn var(--trans-speed) ease;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================
+       3. ATTENDANCE VIEW STYLING
+       ========================================== */
+    .date-selector-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+
+    .date-bubble-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+      position: relative;
+      flex-grow: 1;
+      justify-content: space-between;
+    }
+
+    .date-display-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .date-display-label svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-indigo);
+    }
+
+    .hidden-datepicker {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .default-location-setter {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .default-location-setter label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .default-location-setter select {
+      max-width: 220px;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.85rem;
+    }
+
+    /* Summary Dashboard Cards */
+    .attendance-dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .dashboard-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.5rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dashboard-pill-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .dashboard-pill-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 1px;
+    }
+
+    .dashboard-pill.active-marked {
+      background: var(--accent-indigo-glow);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: var(--accent-indigo);
+    }
+    
+    .dashboard-pill.active-present {
+      background: var(--color-present-glow);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--color-present);
+    }
+
+    .dashboard-pill.active-absent {
+      background: var(--color-absent-glow);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: var(--color-absent);
+    }
+
+    .quick-ops-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+
+    .quick-ops-row p {
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .quick-op-links {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .text-link {
+      background: none;
+      border: none;
+      color: var(--accent-indigo);
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Worker Grid & Attendance Cards */
+    .worker-list-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 620px) {
+      .worker-list-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .attendance-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .worker-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .worker-card-info {
+      flex-grow: 1;
+      min-width: 0;
+    }
+
+    .worker-name {
+      font-weight: 600;
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .worker-status-banner {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .card-actions-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .attendance-loc-dropdown {
+      flex-grow: 1;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border: 2px dashed rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-lg);
+    }
+
+    .empty-state-icon {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 0.8rem;
+      border-radius: var(--radius-full);
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .empty-state-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* ==========================================
+       4. CREW DIRECTORY & SITES STYLING
+       ========================================== */
+    .crew-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .search-bar-container {
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dark);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .search-input {
+      padding-left: 2.2rem;
+      padding-top: 0.55rem;
+      padding-bottom: 0.55rem;
+    }
+
+    .crew-directory-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+
+    .crew-card {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .crew-info {
+      flex-grow: 1;
+      min-width: 0;
+    }
+
+    .crew-stats-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .crew-actions {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    /* ==========================================
+       5. HISTORY & STATS VIEW STYLING
+       ========================================== */
+    .history-tabs {
+      display: flex;
+      background: var(--bg-secondary);
+      padding: 3px;
+      border-radius: var(--radius-md);
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .history-tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.45rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--trans-speed) ease;
+    }
+
+    .history-tab-btn.active {
+      background: var(--bg-tertiary);
+      color: var(--text-main);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .history-date-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .history-date-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.45rem 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-grow: 1;
+      position: relative;
+    }
+
+    .history-date-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .metric-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .metric-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 1px;
+    }
+
+    .timeline-log {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      font-size: 0.85rem;
+    }
+
+    .timeline-date {
+      font-weight: 500;
+    }
+
+    /* ==========================================
+       6. WEEKLY BILLING SUMMARY STYLING
+       ========================================== */
+    .summary-week-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+
+    .summary-week-display {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.45rem 0.75rem;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      position: relative;
+      flex-grow: 1;
+      justify-content: space-between;
+    }
+
+    .weekly-billing-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .billing-card-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin: 0.5rem 0;
+    }
+
+    .billing-metric {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem;
+      text-align: center;
+    }
+
+    .billing-metric-num {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .billing-metric-lbl {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .worker-list-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .billing-workers-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .billing-worker-tag {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.2rem 0.45rem;
+      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .billing-worker-tag strong {
+      color: var(--accent-indigo);
+    }
+
+    /* ==========================================
+       7. SETTINGS VIEW STYLING
+       ========================================== */
+    .settings-section {
+      margin-bottom: 1.25rem;
+    }
+    
+    .settings-section h2 {
+      margin-bottom: 0.6rem;
+      font-size: 1rem;
+      border-left: 3px solid var(--accent-indigo);
+      padding-left: 0.5rem;
+    }
+
+    .settings-section p {
+      margin-bottom: 0.85rem;
+    }
+
+    .settings-button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .hidden-file-input {
+      display: none;
+    }
+
+    .danger-zone {
+      border: 1px solid rgba(244, 63, 94, 0.2);
+      background: rgba(244, 63, 94, 0.02);
+      padding: 1rem;
+      border-radius: var(--radius-lg);
+      margin-top: 1.5rem;
+    }
+
+    .danger-zone h2 {
+      color: var(--color-absent);
+      border-left: 3px solid var(--color-absent);
+    }
+
+    /* ==========================================
+       8. MODAL WINDOWS
+       ========================================== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(11, 15, 25, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--trans-speed) ease;
+      padding: 1rem;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(12px);
+      transition: transform var(--trans-speed) cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-close:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-main);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 5.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 1001;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .toast.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast-icon {
+      color: var(--accent-indigo);
+      display: flex;
+      align-items: center;
+    }
+
+    /* SVG icon strokes styling */
+    svg {
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================
+       HEADER & TITLE BAR
+       ========================================== -->
+  <header>
+    <div class="header-content">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <!-- Calendar logo -->
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke-width="2.5">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <path d="M9 16l2 2 4-4"></path>
+          </svg>
+        </div>
+        <h1>Crew Tracker</h1>
+      </div>
+      <div class="status-indicator-pill">
+        <span class="status-dot"></span>
+        <span>Local Mode</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================
+       MAIN VIEWS PORT
+       ========================================== -->
+  <main class="container">
+
+    <!-- 1. ATTENDANCE VIEW -->
+    <section id="viewAttendance" class="view-panel active">
+      
+      <!-- Date Picker Row -->
+      <div class="date-selector-row">
+        <button class="btn btn-icon-only" id="prevDayBtn" aria-label="Previous day">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        
+        <div class="date-bubble-container">
+          <span class="date-display-label" id="dateLabel">
+            <svg viewBox="0 0 24 24" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span id="dateLabelText">Loading Date...</span>
+          </span>
+          <input type="date" class="hidden-datepicker" id="attendanceDatePicker">
+          <button class="text-link" id="jumpToTodayBtn" style="text-decoration: none;">Today</button>
+        </div>
+
+        <button class="btn btn-icon-only" id="nextDayBtn" aria-label="Next day">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
+      <!-- Default Location Picker -->
+      <div class="default-location-setter">
+        <label for="defaultLocationSelect">Default Location today:</label>
+        <select class="dropdown-select" id="defaultLocationSelect">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Quick Metrics Dashboard -->
+      <div class="attendance-dashboard">
+        <div class="dashboard-pill active-marked">
+          <span class="dashboard-pill-value" id="statsMarked">0/0</span>
+          <span class="dashboard-pill-label">Marked</span>
+        </div>
+        <div class="dashboard-pill active-present">
+          <span class="dashboard-pill-value" id="statsPresent">0</span>
+          <span class="dashboard-pill-label">Present</span>
+        </div>
+        <div class="dashboard-pill active-absent">
+          <span class="dashboard-pill-value" id="statsAbsent">0</span>
+          <span class="dashboard-pill-label">Absent</span>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-track" style="margin-bottom: 1rem;">
+        <div class="progress-fill" id="statsProgressBar"></div>
+      </div>
+
+      <!-- Quick Actions Operations -->
+      <div class="quick-ops-row">
+        <p>Active Crew List</p>
+        <div class="quick-op-links">
+          <button class="text-link" id="markAllPresentLink">Mark All Present</button>
+          <button class="text-link" id="clearAllAttendanceLink" style="color: var(--text-dark);">Clear Marks</button>
+        </div>
+      </div>
+
+      <!-- Attendance Worker List Container -->
+      <div class="worker-list-grid" id="attendanceWorkersContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </section>
+
+    <!-- 2. CREW DIRECTORY VIEW -->
+    <section id="viewCrew" class="view-panel">
+      <div class="crew-header">
+        <div>
+          <h2>Crew Directory</h2>
+          <p id="crewCountSub">0 workers total</p>
+        </div>
+        <button class="btn btn-primary" id="openAddWorkerModalBtn">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add Worker
+        </button>
+      </div>
+
+      <!-- Search Box -->
+      <div class="search-bar-container">
+        <span class="search-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input type="text" class="input-text search-input" id="searchCrewInput" placeholder="Search crew members by name...">
+      </div>
+
+      <!-- Crew List Container -->
+      <div class="crew-directory-grid" id="crewDirectoryContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- 3. LOCATIONS VIEW -->
+    <section id="viewLocations" class="view-panel">
+      <div class="crew-header">
+        <div>
+          <h2>Job Locations</h2>
+          <p id="locationCountSub">0 locations total</p>
+        </div>
+        <button class="btn btn-primary" id="openAddLocationModalBtn">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add Site
+        </button>
+      </div>
+
+      <!-- Search Box -->
+      <div class="search-bar-container">
+        <span class="search-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input type="text" class="input-text search-input" id="searchLocationInput" placeholder="Search jobs / clients...">
+      </div>
+
+      <!-- Locations List Container -->
+      <div class="crew-directory-grid" id="locationsDirectoryContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- 4. HISTORY VIEW -->
+    <section id="viewHistory" class="view-panel">
+      
+      <!-- Inner History Tabs -->
+      <div class="history-tabs">
+        <button class="history-tab-btn active" id="histTabDate">By Date</button>
+        <button class="history-tab-btn" id="histTabWorker">By Worker</button>
+        <button class="history-tab-btn" id="histTabLocation">By Location</button>
+      </div>
+
+      <!-- A: HISTORY BY DATE SUB-VIEW -->
+      <div id="subViewHistDate">
+        <div class="history-date-picker-row">
+          <div class="history-date-container">
+            <span class="history-date-label" id="histDateLabel">
+              <svg viewBox="0 0 24 24" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span id="histDateLabelText">Select Date</span>
+            </span>
+            <input type="date" class="hidden-datepicker" id="histDatePicker">
+          </div>
+        </div>
+
+        <div class="worker-list-grid" id="histDateRecordsContainer">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- B: HISTORY BY WORKER SUB-VIEW -->
+      <div id="subViewHistWorker" style="display: none;">
+        <div class="worker-select-group">
+          <select class="dropdown-select" id="histWorkerDropdown">
+            <option value="">-- Choose a worker --</option>
+          </select>
+        </div>
+
+        <div id="workerStatsDetails" style="display: none;">
+          <div class="metrics-grid">
+            <div class="metric-card" style="border-left: 3px solid var(--color-present);">
+              <span class="metric-value" id="metricPresenceRate">0%</span>
+              <span class="metric-label">Presence Rate</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-value" id="metricTotalDays">0</span>
+              <span class="metric-label">Days Tracked</span>
+            </div>
+            <div class="metric-card" style="border-left: 3px solid var(--color-present);">
+              <span class="metric-value" id="metricPresentCount" style="color: var(--color-present);">0</span>
+              <span class="metric-label">Present</span>
+            </div>
+            <div class="metric-card" style="border-left: 3px solid var(--color-absent);">
+              <span class="metric-value" id="metricAbsentCount" style="color: var(--color-absent);">0</span>
+              <span class="metric-label">Absent</span>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 0.6rem; font-weight: 600;">Historical Timeline</h3>
+          <div class="timeline-log" id="workerHistoryTimeline">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Unselected state -->
+        <div id="workerStatsEmptyState" class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+          </div>
+          <h3>Select a Worker</h3>
+          <p>Choose a crew member from the dropdown menu to analyze their history.</p>
+        </div>
+      </div>
+
+      <!-- C: HISTORY BY LOCATION SUB-VIEW -->
+      <div id="subViewHistLocation" style="display: none;">
+        <div class="worker-select-group">
+          <select class="dropdown-select" id="histLocationDropdown">
+            <option value="">-- Choose a location --</option>
+          </select>
+        </div>
+
+        <div id="locationStatsDetails" style="display: none;">
+          <div class="metrics-grid">
+            <div class="metric-card" style="border-left: 3px solid var(--accent-indigo);">
+              <span class="metric-value" id="metricLocationActiveDays">0</span>
+              <span class="metric-label">Active Days</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-value" id="metricLocationWorkerDays">0</span>
+              <span class="metric-label">Total Worker-Days</span>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 0.6rem; font-weight: 600;">Location Deployment Timeline</h3>
+          <div class="timeline-log" id="locationHistoryTimeline">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Unselected state -->
+        <div id="locationStatsEmptyState" class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          </div>
+          <h3>Select a Location</h3>
+          <p>Choose a job site from the dropdown menu to analyze historical deployments.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 5. WEEKLY SUMMARY VIEW -->
+    <section id="viewSummary" class="view-panel">
+      
+      <!-- Week Selector -->
+      <div class="summary-week-bar">
+        <button class="btn btn-icon-only" id="prevWeekBtn" aria-label="Previous week">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        
+        <div class="summary-week-display">
+          <span class="date-display-label" id="weekRangeLabel">
+            <svg viewBox="0 0 24 24" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>
+            <span id="weekRangeLabelText">Select Billing Week</span>
+          </span>
+          <input type="date" class="hidden-datepicker" id="summaryWeekDatePicker">
+          <button class="text-link" id="jumpToThisWeekBtn" style="text-decoration: none;">This Week</button>
+        </div>
+
+        <button class="btn btn-icon-only" id="nextWeekBtn" aria-label="Next week">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
+      <!-- Weekly CSV Export Row -->
+      <div class="quick-ops-row">
+        <p>Invoicing Breakdown</p>
+        <button class="btn btn-primary" id="exportWeeklySummaryCSVBtn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          Export Weekly CSV
+        </button>
+      </div>
+
+      <!-- Weekly Billing Cards Container -->
+      <div class="weekly-billing-grid" id="weeklyBillingSummaryContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </section>
+
+    <!-- 6. SETTINGS VIEW -->
+    <section id="viewSettings" class="view-panel">
+      
+      <!-- Backups Section -->
+      <div class="card settings-section">
+        <h2>Data Management</h2>
+        <p>Save backups of your crew and site data, or import JSON files to restore onto a new phone or computer browser.</p>
+        
+        <div class="settings-button-group">
+          <!-- Backup JSON -->
+          <button class="btn btn-primary" id="exportBackupBtn">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Export Backup (JSON)
+          </button>
+          
+          <!-- Restore JSON trigger -->
+          <button class="btn btn-secondary" id="importBackupTriggerBtn">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Import Backup
+          </button>
+          <input type="file" class="hidden-file-input" id="importBackupFileInput" accept=".json">
+
+          <!-- Export CSV -->
+          <button class="btn btn-secondary" id="exportCSVBtn">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            Export All Records (CSV)
+          </button>
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="danger-zone">
+        <h2>Danger Zone</h2>
+        <p>Permanently delete all worker profiles, locations, and historical records from this browser cache.</p>
+        <button class="btn btn-danger" id="wipeDatabaseBtn">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          Reset All Data
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       FLOATING BOTTOM NAVIGATION
+       ========================================== -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-target="viewAttendance">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      <span>Today</span>
+    </button>
+    <button class="nav-item" data-target="viewCrew">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+      <span>Crew</span>
+    </button>
+    <button class="nav-item" data-target="viewLocations">
+      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      <span>Sites</span>
+    </button>
+    <button class="nav-item" data-target="viewHistory">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>
+      <span>History</span>
+    </button>
+    <button class="nav-item" data-target="viewSummary">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      <span>Summary</span>
+    </button>
+    <button class="nav-item" data-target="viewSettings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- ==========================================
+       MODAL 1: ADD WORKER
+       ========================================== -->
+  <div class="modal-overlay" id="addWorkerModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Worker</h2>
+        <button class="modal-close" id="closeAddWorkerModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="addWorkerForm" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="newWorkerName">Worker's Full Name</label>
+          <input type="text" class="input-text" id="newWorkerName" placeholder="e.g. Gabriel Silva" required autocomplete="off">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelAddWorkerBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Worker</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: EDIT WORKER
+       ========================================== -->
+  <div class="modal-overlay" id="editWorkerModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Worker Name</h2>
+        <button class="modal-close" id="closeEditWorkerModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="editWorkerForm" onsubmit="event.preventDefault();">
+        <input type="hidden" id="editWorkerId">
+        <div class="form-group">
+          <label for="editWorkerName">Worker's Full Name</label>
+          <input type="text" class="input-text" id="editWorkerName" required autocomplete="off">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelEditWorkerBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: DELETE WORKER CONFIRMATION
+       ========================================== -->
+  <div class="modal-overlay" id="deleteConfirmModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Remove Worker?</h2>
+        <button class="modal-close" id="closeDeleteModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <input type="hidden" id="deleteWorkerId">
+        <p style="margin-bottom: 0.6rem; color: var(--text-main); font-weight: 500;" id="deleteWorkerNamePrompt"></p>
+        <p style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Archive (Recommended):</strong> Hides the worker from future schedules but preserves all of their historical attendance logs.</p>
+        <p style="font-size: 0.8rem; color: var(--color-absent);"><strong>Delete Permanently:</strong> Completely erases this worker and all associated logs from this device.</p>
+      </div>
+      <div class="modal-footer" style="flex-wrap: wrap; gap: 0.5rem; justify-content: space-between;">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+        <div style="display: flex; gap: 0.4rem;">
+          <button type="button" class="btn btn-primary" id="archiveWorkerConfirmBtn">Archive</button>
+          <button type="button" class="btn btn-danger" id="deleteWorkerConfirmBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 4: ADD LOCATION
+       ========================================== -->
+  <div class="modal-overlay" id="addLocationModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Job Location</h2>
+        <button class="modal-close" id="closeAddLocationModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="addLocationForm" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="newLocationName">Location / Client Name</label>
+          <input type="text" class="input-text" id="newLocationName" placeholder="e.g. Bridgeport Highway" required autocomplete="off">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelAddLocationBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Location</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 5: EDIT LOCATION
+       ========================================== -->
+  <div class="modal-overlay" id="editLocationModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Location Name</h2>
+        <button class="modal-close" id="closeEditLocationModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="editLocationForm" onsubmit="event.preventDefault();">
+        <input type="hidden" id="editLocationId">
+        <div class="form-group">
+          <label for="editLocationName">Location / Client Name</label>
+          <input type="text" class="input-text" id="editLocationName" required autocomplete="off">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelEditLocationBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 6: DELETE LOCATION CONFIRMATION
+       ========================================== -->
+  <div class="modal-overlay" id="deleteLocationConfirmModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Remove Site / Location?</h2>
+        <button class="modal-close" id="closeDeleteLocationModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <input type="hidden" id="deleteLocationId">
+        <p style="margin-bottom: 0.6rem; color: var(--text-main); font-weight: 500;" id="deleteLocationNamePrompt"></p>
+        <p style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Archive (Recommended):</strong> Retains historical deployment totals, but prevents new assignments for this location.</p>
+        <p style="font-size: 0.8rem; color: var(--color-absent);"><strong>Delete Permanently:</strong> Deletes this site and removes it from all historical entries.</p>
+      </div>
+      <div class="modal-footer" style="flex-wrap: wrap; gap: 0.5rem; justify-content: space-between;">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteLocationBtn">Cancel</button>
+        <div style="display: flex; gap: 0.4rem;">
+          <button type="button" class="btn btn-primary" id="archiveLocationConfirmBtn">Archive</button>
+          <button type="button" class="btn btn-danger" id="deleteLocationConfirmBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       TOAST NOTICE
+       ========================================== -->
+  <div class="toast" id="toastNotice">
+    <span class="toast-icon">
+      <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </span>
+    <span id="toastMessage">Done!</span>
+  </div>
+
+  <!-- ==========================================
+       JAVASCRIPT LOGIC
+       ========================================== -->
+  <script>
+    // ==========================================
+    // 1. DATA STATE & STORAGE
+    // ==========================================
+    
+    // Initial Seed Data
+    const DEFAULT_CREW = [
+      { id: "w_1", name: "Gabriel Silva", status: "active", createdAt: 1786400000000 },
+      { id: "w_2", name: "Tyler Jenkins", status: "active", createdAt: 1786400000000 },
+      { id: "w_3", name: "Carlos M.", status: "active", createdAt: 1786400000000 },
+      { id: "w_4", name: "Marcus Brody", status: "active", createdAt: 1786400000000 },
+      { id: "w_5", name: "David Vance", status: "active", createdAt: 1786400000000 }
+    ];
+
+    const DEFAULT_LOCATIONS = [
+      { id: "l_1", name: "Bridgeport Highway", status: "active", createdAt: 1786400000000 },
+      { id: "l_2", name: "Downtown Plaza", status: "active", createdAt: 1786400000000 }
+    ];
+
+    let state = {
+      workers: [],
+      locations: [],
+      attendance: {}, // schema: { "YYYY-MM-DD": { "workerId": { status: "present"|"absent", locationId: "id"|null } } }
+      currentDate: "",
+      currentTab: "viewAttendance",
+      historyWorkerId: "",
+      historyLocationId: "",
+      historyDate: "",
+      summaryStartOfWeek: ""
+    };
+
+    // Load state from localStorage with legacy migration
+    function loadState() {
+      const storedData = localStorage.getItem("crew_attendance_data");
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData);
+          state.workers = parsed.workers || [];
+          state.locations = parsed.locations || [];
+          state.attendance = parsed.attendance || {};
+          
+          migrateLegacyData();
+        } catch (e) {
+          console.error("Error loading database", e);
+          initializeDefaults();
+        }
+      } else {
+        initializeDefaults();
+      }
+
+      // Initialize dates
+      const today = new Date();
+      state.currentDate = getLocalDateString(today);
+      state.historyDate = state.currentDate;
+      state.summaryStartOfWeek = getMondayDateString(today);
+
+      saveState();
+    }
+
+    function initializeDefaults() {
+      state.workers = [...DEFAULT_CREW];
+      state.locations = [...DEFAULT_LOCATIONS];
+      state.attendance = {};
+    }
+
+    function saveState() {
+      const payload = {
+        workers: state.workers,
+        locations: state.locations,
+        attendance: state.attendance
+      };
+      localStorage.setItem("crew_attendance_data", JSON.stringify(payload));
+    }
+
+    // Database structure migration (Converts legacy status strings to objects)
+    function migrateLegacyData() {
+      let isMigrated = false;
+
+      // 1. Ensure locations array exists
+      if (!state.locations || state.locations.length === 0) {
+        state.locations = [...DEFAULT_LOCATIONS];
+        isMigrated = true;
+      }
+
+      // 2. Scan and translate attendance records
+      Object.keys(state.attendance).forEach(date => {
+        const record = state.attendance[date];
+        Object.keys(record).forEach(workerId => {
+          const val = record[workerId];
+          if (typeof val === "string") {
+            // Found legacy status string! Map it
+            const defaultLocId = state.locations[0] ? state.locations[0].id : null;
+            record[workerId] = {
+              status: val === "half-day" ? "present" : val,
+              locationId: val === "absent" ? null : defaultLocId
+            };
+            isMigrated = true;
+          } else if (val && typeof val === "object" && !val.status) {
+            // Partially formed object
+            record[workerId] = {
+              status: "present",
+              locationId: val.locationId || (state.locations[0] ? state.locations[0].id : null)
+            };
+            isMigrated = true;
+          }
+        });
+      });
+
+      if (isMigrated) {
+        saveState();
+        console.log("Database successfully migrated to Location-Aware Schema.");
+      }
+    }
+
+    // Helper: local YYYY-MM-DD
+    function getLocalDateString(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Helper: Finds the Monday of a given date (starts the week)
+    function getMondayDateString(date) {
+      const temp = new Date(date);
+      const day = temp.getDay();
+      const diff = temp.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday (0)
+      return getLocalDateString(new Date(temp.setDate(diff)));
+    }
+
+    function formatFriendlyDate(dateStr) {
+      if (!dateStr) return "";
+      const parts = dateStr.split('-');
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+
+    function formatFriendlyWeek(mondayStr) {
+      if (!mondayStr) return "";
+      const parts = mondayStr.split('-');
+      const mon = new Date(parts[0], parts[1] - 1, parts[2]);
+      
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      
+      const options = { month: 'short', day: 'numeric', year: 'numeric' };
+      return `${mon.toLocaleDateString('en-US', options)} - ${sun.toLocaleDateString('en-US', options)}`;
+    }
+
+    // Gradient initials based on name string
+    function getAvatarGradient(name) {
+      const colors = [
+        ["#4f46e5", "#818cf8"],
+        ["#059669", "#34d399"],
+        ["#d97706", "#fbbf24"],
+        ["#db2777", "#f472b6"],
+        ["#2563eb", "#60a5fa"],
+        ["#7c3aed", "#a78bfa"],
+        ["#0891b2", "#22d3ee"],
+        ["#dc2626", "#f87171"]
+      ];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return `linear-gradient(135deg, ${colors[Math.abs(hash) % colors.length][0]} 0%, ${colors[Math.abs(hash) % colors.length][1]} 100%)`;
+    }
+
+    function getInitials(name) {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    }
+
+    // ==========================================
+    // 2. RENDERING SYSTEM
+    // ==========================================
+    function render() {
+      renderDefaultLocationSelect();
+      renderAttendanceView();
+      renderCrewView();
+      renderLocationsView();
+      renderHistoryView();
+      renderSummaryView();
+    }
+
+    // Populates default location selection on today's view
+    function renderDefaultLocationSelect() {
+      const select = document.getElementById("defaultLocationSelect");
+      const activeLocations = state.locations.filter(l => l.status === "active");
+      activeLocations.sort((a, b) => a.name.localeCompare(b.name));
+
+      select.innerHTML = '<option value="">-- No Default Location --</option>';
+      activeLocations.forEach(loc => {
+        const opt = document.createElement("option");
+        opt.value = loc.id;
+        opt.innerText = loc.name;
+        select.appendChild(opt);
+      });
+    }
+
+    // A: RENDER ATTENDANCE SCREEN
+    function renderAttendanceView() {
+      const container = document.getElementById("attendanceWorkersContainer");
+      document.getElementById("dateLabelText").innerText = formatFriendlyDate(state.currentDate);
+      document.getElementById("attendanceDatePicker").value = state.currentDate;
+      
+      const activeWorkers = state.workers.filter(w => w.status !== "archived");
+      const archivedWithRecords = state.workers.filter(w => {
+        if (w.status !== "archived") return false;
+        const record = state.attendance[state.currentDate];
+        return record && record[w.id];
+      });
+
+      const displayedWorkers = [...activeWorkers, ...archivedWithRecords];
+      displayedWorkers.sort((a, b) => a.name.localeCompare(b.name));
+
+      const activeLocations = state.locations.filter(l => l.status === "active");
+      activeLocations.sort((a, b) => a.name.localeCompare(b.name));
+
+      if (displayedWorkers.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            </div>
+            <h3>No Workers Active</h3>
+            <p>Go to the <strong>Crew</strong> tab to add workers.</p>
+          </div>
+        `;
+        document.getElementById("statsMarked").innerText = "0/0";
+        document.getElementById("statsPresent").innerText = "0";
+        document.getElementById("statsAbsent").innerText = "0";
+        document.getElementById("statsProgressBar").style.width = "0%";
+        return;
+      }
+
+      let markedCount = 0;
+      let presentCount = 0;
+      let absentCount = 0;
+
+      const dateRecord = state.attendance[state.currentDate] || {};
+
+      container.innerHTML = "";
+      displayedWorkers.forEach(worker => {
+        const record = dateRecord[worker.id] || null;
+        const status = record ? record.status : "";
+        const locationId = record ? record.locationId : "";
+
+        if (status) {
+          markedCount++;
+          if (status === "present") presentCount++;
+          else if (status === "absent") absentCount++;
+        }
+
+        const card = document.createElement("div");
+        card.className = `card attendance-card`;
+        if (status === "present") card.classList.add("card-glow-present");
+        else if (status === "absent") card.classList.add("card-glow-absent");
+
+        // Build location dropdown options
+        let selectHtml = `<select class="dropdown-select attendance-loc-dropdown" data-worker-id="${worker.id}" ${status !== 'present' ? 'disabled' : ''}>`;
+        selectHtml += `<option value="">-- Choose Job Site --</option>`;
+        
+        // Include assigned location even if archived, so old links don't break
+        const allLocationsToShow = [...activeLocations];
+        if (locationId && !activeLocations.some(l => l.id === locationId)) {
+          const archLoc = state.locations.find(l => l.id === locationId);
+          if (archLoc) allLocationsToShow.push(archLoc);
+        }
+
+        allLocationsToShow.forEach(loc => {
+          selectHtml += `<option value="${loc.id}" ${locationId === loc.id ? 'selected' : ''}>${loc.name}</option>`;
+        });
+        selectHtml += `</select>`;
+
+        let badgeHtml = worker.status === "archived" ? `<span class="badge badge-archived" style="margin-left: 0.4rem;">Archived</span>` : "";
+
+        card.innerHTML = `
+          <div class="worker-card-header">
+            <div class="avatar" style="background: ${getAvatarGradient(worker.name)}">
+              ${getInitials(worker.name)}
+            </div>
+            <div class="worker-card-info">
+              <div class="worker-name">${worker.name}${badgeHtml}</div>
+              <div class="worker-status-banner">
+                ${status ? `Marked: <strong style="color: var(--color-${status})">${status.toUpperCase()}</strong>` : `<span style="color: var(--text-dark)">Unmarked</span>`}
+              </div>
+            </div>
+          </div>
+          <div class="card-actions-row">
+            <div class="status-btn-group" style="width: 140px;">
+              <button class="status-btn status-btn-present ${status === 'present' ? 'active' : ''}" data-worker-id="${worker.id}" data-status="present" aria-label="Present">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span class="status-label">Present</span>
+              </button>
+              <button class="status-btn status-btn-absent ${status === 'absent' ? 'active' : ''}" data-worker-id="${worker.id}" data-status="absent" aria-label="Absent">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <span class="status-label">Absent</span>
+              </button>
+            </div>
+            ${selectHtml}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Bind actions
+      container.querySelectorAll(".status-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const workerId = btn.getAttribute("data-worker-id");
+          const status = btn.getAttribute("data-status");
+          toggleAttendance(workerId, status);
+        });
+      });
+
+      container.querySelectorAll(".attendance-loc-dropdown").forEach(select => {
+        select.addEventListener("change", (e) => {
+          const workerId = select.getAttribute("data-worker-id");
+          setAttendanceLocation(workerId, e.target.value);
+        });
+      });
+
+      // Update counters
+      document.getElementById("statsMarked").innerText = `${markedCount}/${displayedWorkers.length}`;
+      document.getElementById("statsPresent").innerText = presentCount;
+      document.getElementById("statsAbsent").innerText = absentCount;
+
+      const completionPct = displayedWorkers.length > 0 ? (markedCount / displayedWorkers.length) * 100 : 0;
+      document.getElementById("statsProgressBar").style.width = `${completionPct}%`;
+    }
+
+    // B: RENDER CREW DIRECTORY SCREEN
+    function renderCrewView() {
+      const container = document.getElementById("crewDirectoryContainer");
+      const query = document.getElementById("searchCrewInput").value.trim().toLowerCase();
+      
+      let filtered = state.workers.filter(w => w.name.toLowerCase().includes(query));
+      filtered.sort((a, b) => {
+        if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      const activeCount = state.workers.filter(w => w.status === "active").length;
+      document.getElementById("crewCountSub").innerText = `${activeCount} active, ${state.workers.length - activeCount} archived`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <h3>No Workers Found</h3>
+            <p>Add crew members or refine search query.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = "";
+      filtered.forEach(worker => {
+        const stats = getWorkerAttendanceStats(worker.id);
+        const card = document.createElement("div");
+        card.className = "card crew-card";
+        
+        let badgeHtml = worker.status === "archived" ? `<span class="badge badge-archived" style="margin-left: 0.4rem;">Archived</span>` : "";
+        let actionButtons = "";
+
+        if (worker.status === "archived") {
+          actionButtons = `
+            <button class="btn btn-icon-only restore-worker-btn" data-worker-id="${worker.id}" title="Un-archive">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            </button>
+            <button class="btn btn-icon-only delete-worker-btn" data-worker-id="${worker.id}" title="Delete Permanently">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2" style="color: var(--color-absent);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          `;
+        } else {
+          actionButtons = `
+            <button class="btn btn-icon-only edit-worker-btn" data-worker-id="${worker.id}" data-worker-name="${worker.name}" title="Edit Name">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="btn btn-icon-only delete-worker-btn" data-worker-id="${worker.id}" title="Archive/Remove">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="avatar" style="background: ${getAvatarGradient(worker.name)}">
+            ${getInitials(worker.name)}
+          </div>
+          <div class="crew-info">
+            <div class="worker-name">${worker.name}${badgeHtml}</div>
+            <div class="crew-stats-badge">
+              Active: <strong>${stats.presentDays} days</strong> | Present: <strong>${stats.presenceRate}%</strong>
+            </div>
+          </div>
+          <div class="crew-actions">${actionButtons}</div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Bind events
+      container.querySelectorAll(".edit-worker-btn").forEach(btn => {
+        btn.addEventListener("click", () => openEditWorkerModal(btn.getAttribute("data-worker-id"), btn.getAttribute("data-worker-name")));
+      });
+      container.querySelectorAll(".restore-worker-btn").forEach(btn => {
+        btn.addEventListener("click", () => restoreWorker(btn.getAttribute("data-worker-id")));
+      });
+      container.querySelectorAll(".delete-worker-btn").forEach(btn => {
+        btn.addEventListener("click", () => openDeleteConfirmModal(btn.getAttribute("data-worker-id")));
+      });
+    }
+
+    // C: RENDER LOCATIONS VIEW [NEW]
+    function renderLocationsView() {
+      const container = document.getElementById("locationsDirectoryContainer");
+      const query = document.getElementById("searchLocationInput").value.trim().toLowerCase();
+      
+      let filtered = state.locations.filter(l => l.name.toLowerCase().includes(query));
+      filtered.sort((a, b) => {
+        if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      const activeCount = state.locations.filter(l => l.status === "active").length;
+      document.getElementById("locationCountSub").innerText = `${activeCount} active, ${state.locations.length - activeCount} archived`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <h3>No Locations Found</h3>
+            <p>Add sites / clients or refine search query.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = "";
+      filtered.forEach(loc => {
+        const stats = getLocationAttendanceStats(loc.id);
+        const card = document.createElement("div");
+        card.className = "card crew-card";
+        
+        let badgeHtml = loc.status === "archived" ? `<span class="badge badge-archived" style="margin-left: 0.4rem;">Archived</span>` : "";
+        let actionButtons = "";
+
+        if (loc.status === "archived") {
+          actionButtons = `
+            <button class="btn btn-icon-only restore-loc-btn" data-loc-id="${loc.id}" title="Un-archive">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            </button>
+            <button class="btn btn-icon-only delete-loc-btn" data-loc-id="${loc.id}" title="Delete Permanently">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2" style="color: var(--color-absent);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          `;
+        } else {
+          actionButtons = `
+            <button class="btn btn-icon-only edit-loc-btn" data-loc-id="${loc.id}" data-loc-name="${loc.name}" title="Edit Name">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="btn btn-icon-only delete-loc-btn" data-loc-id="${loc.id}" title="Archive/Remove">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="avatar avatar-loc">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          </div>
+          <div class="crew-info">
+            <div class="worker-name">${loc.name}${badgeHtml}</div>
+            <div class="crew-stats-badge">
+              Active Days: <strong>${stats.activeDays}</strong> | Worker-Days billed: <strong>${stats.totalWorkerDays}</strong>
+            </div>
+          </div>
+          <div class="crew-actions">${actionButtons}</div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Bind events
+      container.querySelectorAll(".edit-loc-btn").forEach(btn => {
+        btn.addEventListener("click", () => openEditLocationModal(btn.getAttribute("data-loc-id"), btn.getAttribute("data-loc-name")));
+      });
+      container.querySelectorAll(".restore-loc-btn").forEach(btn => {
+        btn.addEventListener("click", () => restoreLocation(btn.getAttribute("data-loc-id")));
+      });
+      container.querySelectorAll(".delete-loc-btn").forEach(btn => {
+        btn.addEventListener("click", () => openDeleteLocationConfirmModal(btn.getAttribute("data-loc-id")));
+      });
+    }
+
+    // D: RENDER HISTORY SCREEN
+    function renderHistoryView() {
+      // 1. By Date Sub-view
+      document.getElementById("histDateLabelText").innerText = formatFriendlyDate(state.historyDate);
+      document.getElementById("histDatePicker").value = state.historyDate;
+
+      const dateRecord = state.attendance[state.historyDate] || {};
+      const dateRecordsContainer = document.getElementById("histDateRecordsContainer");
+
+      const historicalList = state.workers.filter(w => dateRecord[w.id]);
+      historicalList.sort((a, b) => a.name.localeCompare(b.name));
+
+      if (historicalList.length === 0) {
+        dateRecordsContainer.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>
+            </div>
+            <h3>No Records on this Date</h3>
+            <p>No attendance logs saved for ${formatFriendlyDate(state.historyDate)}.</p>
+          </div>
+        `;
+      } else {
+        dateRecordsContainer.innerHTML = "";
+        historicalList.forEach(worker => {
+          const entry = dateRecord[worker.id];
+          const status = entry.status;
+          const loc = entry.locationId ? state.locations.find(l => l.id === entry.locationId) : null;
+          const locationText = loc ? loc.name : "Unassigned";
+
+          const item = document.createElement("div");
+          item.className = "card crew-card";
+          item.innerHTML = `
+            <div class="avatar" style="background: ${getAvatarGradient(worker.name)}">
+              ${getInitials(worker.name)}
+            </div>
+            <div class="crew-info">
+              <div class="worker-name">${worker.name}</div>
+              <div class="crew-stats-badge" style="margin-top: 2px; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                <span>Status: <span class="badge badge-${status}">${status}</span></span>
+                ${status === 'present' ? `<span>at <span class="badge badge-location">${locationText}</span></span>` : ''}
+              </div>
+            </div>
+          `;
+          dateRecordsContainer.appendChild(item);
+        });
+      }
+
+      // 2. By Worker Sub-view Dropdown
+      const workerDropdown = document.getElementById("histWorkerDropdown");
+      const currentWorkerSelect = workerDropdown.value;
+      workerDropdown.innerHTML = '<option value="">-- Choose a worker --</option>';
+
+      const activeWorkers = state.workers.filter(w => w.status === "active");
+      activeWorkers.sort((a, b) => a.name.localeCompare(b.name));
+      if (activeWorkers.length > 0) {
+        const grp = document.createElement("optgroup");
+        grp.label = "Active Crew";
+        activeWorkers.forEach(w => {
+          const opt = document.createElement("option");
+          opt.value = w.id;
+          opt.innerText = w.name;
+          grp.appendChild(opt);
+        });
+        workerDropdown.appendChild(grp);
+      }
+
+      const archivedWorkers = state.workers.filter(w => w.status === "archived");
+      archivedWorkers.sort((a, b) => a.name.localeCompare(b.name));
+      if (archivedWorkers.length > 0) {
+        const grp = document.createElement("optgroup");
+        grp.label = "Archived Workers";
+        archivedWorkers.forEach(w => {
+          const opt = document.createElement("option");
+          opt.value = w.id;
+          opt.innerText = `${w.name} (Archived)`;
+          grp.appendChild(opt);
+        });
+        workerDropdown.appendChild(grp);
+      }
+
+      if (currentWorkerSelect && state.workers.some(w => w.id === currentWorkerSelect)) {
+        workerDropdown.value = currentWorkerSelect;
+        renderWorkerStats(currentWorkerSelect);
+      } else {
+        document.getElementById("workerStatsDetails").style.display = "none";
+        document.getElementById("workerStatsEmptyState").style.display = "flex";
+      }
+
+      // 3. By Location Sub-view Dropdown [NEW]
+      const locDropdown = document.getElementById("histLocationDropdown");
+      const currentLocSelect = locDropdown.value;
+      locDropdown.innerHTML = '<option value="">-- Choose a location --</option>';
+
+      const activeLocs = state.locations.filter(l => l.status === "active");
+      activeLocs.sort((a, b) => a.name.localeCompare(b.name));
+      if (activeLocs.length > 0) {
+        const grp = document.createElement("optgroup");
+        grp.label = "Active Sites";
+        activeLocs.forEach(l => {
+          const opt = document.createElement("option");
+          opt.value = l.id;
+          opt.innerText = l.name;
+          grp.appendChild(opt);
+        });
+        locDropdown.appendChild(grp);
+      }
+
+      const archivedLocs = state.locations.filter(l => l.status === "archived");
+      archivedLocs.sort((a, b) => a.name.localeCompare(b.name));
+      if (archivedLocs.length > 0) {
+        const grp = document.createElement("optgroup");
+        grp.label = "Archived Sites";
+        archivedLocs.forEach(l => {
+          const opt = document.createElement("option");
+          opt.value = l.id;
+          opt.innerText = `${l.name} (Archived)`;
+          grp.appendChild(opt);
+        });
+        locDropdown.appendChild(grp);
+      }
+
+      if (currentLocSelect && state.locations.some(l => l.id === currentLocSelect)) {
+        locDropdown.value = currentLocSelect;
+        renderLocationStats(currentLocSelect);
+      } else {
+        document.getElementById("locationStatsDetails").style.display = "none";
+        document.getElementById("locationStatsEmptyState").style.display = "flex";
+      }
+    }
+
+    function renderWorkerStats(workerId) {
+      if (!workerId) {
+        document.getElementById("workerStatsDetails").style.display = "none";
+        document.getElementById("workerStatsEmptyState").style.display = "flex";
+        return;
+      }
+
+      const stats = getWorkerAttendanceStats(workerId);
+      document.getElementById("metricPresenceRate").innerText = `${stats.presenceRate}%`;
+      document.getElementById("metricTotalDays").innerText = stats.totalDays;
+      document.getElementById("metricPresentCount").innerText = stats.presentDays;
+      document.getElementById("metricAbsentCount").innerText = stats.absentDays;
+
+      const timeline = document.getElementById("workerHistoryTimeline");
+      timeline.innerHTML = "";
+
+      if (stats.historyList.length === 0) {
+        timeline.innerHTML = `<div style="text-align: center; color: var(--text-dark); padding: 1rem; font-size: 0.85rem;">No attendance logged.</div>`;
+      } else {
+        stats.historyList.forEach(entry => {
+          const loc = entry.locationId ? state.locations.find(l => l.id === entry.locationId) : null;
+          const locationBadge = loc ? `<span class="badge badge-location" style="margin-left: 0.4rem;">${loc.name}</span>` : "";
+          
+          const div = document.createElement("div");
+          div.className = "timeline-item";
+          div.innerHTML = `
+            <span class="timeline-date">${formatFriendlyDate(entry.date)}</span>
+            <div style="display: flex; align-items: center;">
+              <span class="badge badge-${entry.status}">${entry.status}</span>
+              ${entry.status === 'present' ? locationBadge : ''}
+            </div>
+          `;
+          timeline.appendChild(div);
+        });
+      }
+
+      document.getElementById("workerStatsEmptyState").style.display = "none";
+      document.getElementById("workerStatsDetails").style.display = "block";
+    }
+
+    // Renders Location history logs [NEW]
+    function renderLocationStats(locId) {
+      if (!locId) {
+        document.getElementById("locationStatsDetails").style.display = "none";
+        document.getElementById("locationStatsEmptyState").style.display = "flex";
+        return;
+      }
+
+      const stats = getLocationAttendanceStats(locId);
+      document.getElementById("metricLocationActiveDays").innerText = stats.activeDays;
+      document.getElementById("metricLocationWorkerDays").innerText = stats.totalWorkerDays;
+
+      const timeline = document.getElementById("locationHistoryTimeline");
+      timeline.innerHTML = "";
+
+      if (stats.historyList.length === 0) {
+        timeline.innerHTML = `<div style="text-align: center; color: var(--text-dark); padding: 1rem; font-size: 0.85rem;">No workers worked here yet.</div>`;
+      } else {
+        stats.historyList.forEach(entry => {
+          const namesList = entry.workers.map(wId => {
+            const w = state.workers.find(worker => worker.id === wId);
+            return w ? w.name : "Unknown Crew";
+          }).join(", ");
+
+          const div = document.createElement("div");
+          div.className = "timeline-item";
+          div.style.flexDirection = "column";
+          div.style.alignItems = "flex-start";
+          div.style.gap = "4px";
+          div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.85rem; font-weight: 600;">
+              <span>${formatFriendlyDate(entry.date)}</span>
+              <span class="badge badge-present" style="text-transform: none;">${entry.workers.length} crew present</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">${namesList}</p>
+          `;
+          timeline.appendChild(div);
+        });
+      }
+
+      document.getElementById("locationStatsEmptyState").style.display = "none";
+      document.getElementById("locationStatsDetails").style.display = "block";
+    }
+
+    // Worker stats calculator
+    function getWorkerAttendanceStats(workerId) {
+      const historyList = [];
+      let presentDays = 0;
+      let absentDays = 0;
+
+      Object.keys(state.attendance).forEach(date => {
+        const record = state.attendance[date];
+        if (record && record[workerId]) {
+          const entry = record[workerId];
+          if (entry.status === "present") presentDays++;
+          else if (entry.status === "absent") absentDays++;
+          historyList.push({ date, status: entry.status, locationId: entry.locationId });
+        }
+      });
+
+      historyList.sort((a, b) => b.date.localeCompare(a.date));
+
+      const totalDays = historyList.length;
+      const presenceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+      return { totalDays, presenceRate, presentDays, absentDays, historyList };
+    }
+
+    // Location stats calculator [NEW]
+    function getLocationAttendanceStats(locId) {
+      const historyList = []; // { date, workers: [workerId] }
+      let totalWorkerDays = 0;
+
+      // Sort dates chronologically descending
+      const dates = Object.keys(state.attendance).sort((a,b) => b.localeCompare(a));
+      
+      dates.forEach(date => {
+        const record = state.attendance[date];
+        const workersPresentAtLoc = [];
+        
+        Object.keys(record).forEach(wId => {
+          const entry = record[wId];
+          if (entry && entry.status === "present" && entry.locationId === locId) {
+            workersPresentAtLoc.push(wId);
+            totalWorkerDays++;
+          }
+        });
+
+        if (workersPresentAtLoc.length > 0) {
+          historyList.push({ date, workers: workersPresentAtLoc });
+        }
+      });
+
+      return {
+        activeDays: historyList.length,
+        totalWorkerDays,
+        historyList
+      };
+    }
+
+    // E: RENDER WEEKLY SUMMARY VIEW [NEW]
+    function renderSummaryView() {
+      const container = document.getElementById("weeklyBillingSummaryContainer");
+      document.getElementById("weekRangeLabelText").innerText = formatFriendlyWeek(state.summaryStartOfWeek);
+      document.getElementById("summaryWeekDatePicker").value = state.summaryStartOfWeek;
+
+      // Extract days of selected week (Monday to Sunday)
+      const weekParts = state.summaryStartOfWeek.split('-');
+      const monday = new Date(weekParts[0], weekParts[1] - 1, weekParts[2]);
+      
+      const weekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const temp = new Date(monday);
+        temp.setDate(monday.getDate() + i);
+        weekDates.push(getLocalDateString(temp));
+      }
+
+      // Compile stats per location
+      // { locationId: { activeDaysSet: Set, totalWorkerDays: 0, workers: { wId: count } } }
+      const locSummary = {};
+
+      weekDates.forEach(date => {
+        const record = state.attendance[date];
+        if (record) {
+          Object.keys(record).forEach(wId => {
+            const entry = record[wId];
+            if (entry && entry.status === "present" && entry.locationId) {
+              const locId = entry.locationId;
+              
+              if (!locSummary[locId]) {
+                locSummary[locId] = {
+                  activeDaysSet: new Set(),
+                  totalWorkerDays: 0,
+                  workers: {}
+                };
+              }
+              
+              locSummary[locId].activeDaysSet.add(date);
+              locSummary[locId].totalWorkerDays++;
+              locSummary[locId].workers[wId] = (locSummary[locId].workers[wId] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      const activeLocKeys = Object.keys(locSummary);
+
+      if (activeLocKeys.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </div>
+            <h3>No Deployments Recorded</h3>
+            <p>No workers were marked Present at any job site during this week.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = "";
+      activeLocKeys.forEach(locId => {
+        const loc = state.locations.find(l => l.id === locId);
+        const locName = loc ? loc.name : "Archived Site";
+        const summaryData = locSummary[locId];
+
+        // Format workers tag list
+        let tagsHtml = "";
+        Object.keys(summaryData.workers).forEach(wId => {
+          const w = state.workers.find(worker => worker.id === wId);
+          const wName = w ? w.name : "Unknown Crew";
+          const daysWorked = summaryData.workers[wId];
+          tagsHtml += `
+            <span class="billing-worker-tag">
+              ${wName} (<strong>${daysWorked}d</strong>)
+            </span>
+          `;
+        });
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3 style="font-weight:700; font-size:1.1rem; color:var(--text-main);">${locName}</h3>
+          
+          <div class="billing-card-metrics">
+            <div class="billing-metric">
+              <div class="billing-metric-num">${summaryData.activeDaysSet.size}</div>
+              <div class="billing-metric-lbl">Active Days</div>
+            </div>
+            <div class="billing-metric">
+              <div class="billing-metric-num">${summaryData.totalWorkerDays}</div>
+              <div class="billing-metric-lbl">Worker-Days</div>
+            </div>
+          </div>
+          
+          <div>
+            <div class="worker-list-title">Deployments</div>
+            <div class="billing-workers-tag-list">
+              ${tagsHtml}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ==========================================
+    // 3. CORE FEATURES & STATE MUTATORS
+    // ==========================================
+    
+    // Toggles Present/Absent toggle button
+    function toggleAttendance(workerId, clickedStatus) {
+      if (!state.attendance[state.currentDate]) {
+        state.attendance[state.currentDate] = {};
+      }
+      
+      const record = state.attendance[state.currentDate];
+      const defaultLocId = document.getElementById("defaultLocationSelect").value;
+
+      if (record[workerId] && record[workerId].status === clickedStatus) {
+        // Double clicked: unmarked
+        delete record[workerId];
+      } else {
+        // Toggle status
+        const currentLoc = (record[workerId] && record[workerId].locationId) 
+          ? record[workerId].locationId 
+          : (defaultLocId || (state.locations[0] ? state.locations[0].id : null));
+
+        record[workerId] = {
+          status: clickedStatus,
+          locationId: clickedStatus === "absent" ? null : currentLoc
+        };
+      }
+
+      if (Object.keys(record).length === 0) {
+        delete state.attendance[state.currentDate];
+      }
+
+      saveState();
+      renderAttendanceView();
+    }
+
+    // Assigns worker to a specific location on the current sheet
+    function setAttendanceLocation(workerId, locationId) {
+      if (!state.attendance[state.currentDate]) {
+        state.attendance[state.currentDate] = {};
+      }
+      
+      const record = state.attendance[state.currentDate];
+      
+      if (!record[workerId]) {
+        record[workerId] = { status: "present", locationId: locationId || null };
+      } else {
+        record[workerId].locationId = locationId || null;
+      }
+
+      saveState();
+      renderAttendanceView();
+    }
+
+    // Marks all active displayed crew as Present (auto pre-selects default location)
+    function markAllPresent() {
+      const activeWorkers = state.workers.filter(w => w.status !== "archived");
+      const defaultLocId = document.getElementById("defaultLocationSelect").value;
+      const fallbackLocId = state.locations[0] ? state.locations[0].id : null;
+      const activeLocation = defaultLocId || fallbackLocId;
+
+      if (activeWorkers.length === 0) return;
+
+      if (!state.attendance[state.currentDate]) {
+        state.attendance[state.currentDate] = {};
+      }
+
+      const record = state.attendance[state.currentDate];
+      activeWorkers.forEach(w => {
+        record[w.id] = {
+          status: "present",
+          locationId: activeLocation
+        };
+      });
+
+      saveState();
+      renderAttendanceView();
+      showToast("All active crew marked PRESENT");
+    }
+
+    // Clears marks for active crew today
+    function clearAllAttendance() {
+      const record = state.attendance[state.currentDate];
+      if (!record) return;
+
+      const activeWorkers = state.workers.filter(w => w.status !== "archived");
+      activeWorkers.forEach(w => {
+        delete record[w.id];
+      });
+
+      if (Object.keys(record).length === 0) {
+        delete state.attendance[state.currentDate];
+      }
+
+      saveState();
+      renderAttendanceView();
+      showToast("Cleared active attendance marks");
+    }
+
+    // Navigation Tab switcher
+    function switchTab(targetId) {
+      document.querySelectorAll(".view-panel").forEach(panel => {
+        panel.classList.remove("active");
+      });
+      document.querySelectorAll(".nav-item").forEach(item => {
+        item.classList.remove("active");
+      });
+
+      document.getElementById(targetId).classList.add("active");
+      const tabBtn = document.querySelector(`.nav-item[data-target="${targetId}"]`);
+      if (tabBtn) tabBtn.classList.add("active");
+
+      state.currentTab = targetId;
+
+      // Special re-render hooks
+      if (targetId === "viewHistory") renderHistoryView();
+      else if (targetId === "viewSummary") renderSummaryView();
+      else if (targetId === "viewAttendance") {
+        renderDefaultLocationSelect();
+        renderAttendanceView();
+      }
+    }
+
+    // Crew: Add Worker
+    function addWorker(name) {
+      if (state.workers.some(w => w.name.trim().toLowerCase() === name.trim().toLowerCase() && w.status === "active")) {
+        alert("A worker with this name already exists.");
+        return;
+      }
+      const newId = "w_" + Date.now();
+      state.workers.push({ id: newId, name: name.trim(), status: "active", createdAt: Date.now() });
+      saveState();
+      render();
+      showToast(`Added worker "${name}"`);
+    }
+
+    // Crew: Edit Worker Name
+    function editWorkerName(id, newName) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      worker.name = newName.trim();
+      saveState();
+      render();
+      showToast("Worker details saved");
+    }
+
+    // Crew: Restore Archived Worker
+    function restoreWorker(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      worker.status = "active";
+      saveState();
+      render();
+      showToast(`Restored "${worker.name}"`);
+    }
+
+    // Crew: Archive Worker
+    function archiveWorker(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      worker.status = "archived";
+      saveState();
+      render();
+      showToast(`Archived "${worker.name}"`);
+    }
+
+    // Crew: Delete Worker and historical logs
+    function deleteWorkerPermanently(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      const name = worker.name;
+
+      state.workers = state.workers.filter(w => w.id !== id);
+
+      // Clean attendance records
+      Object.keys(state.attendance).forEach(date => {
+        if (state.attendance[date][id]) {
+          delete state.attendance[date][id];
+        }
+        if (Object.keys(state.attendance[date]).length === 0) {
+          delete state.attendance[date];
+        }
+      });
+
+      saveState();
+      render();
+      showToast(`Deleted "${name}" permanently`);
+    }
+
+    // Locations: Add Location [NEW]
+    function addLocation(name) {
+      if (state.locations.some(l => l.name.trim().toLowerCase() === name.trim().toLowerCase() && l.status === "active")) {
+        alert("A site with this name already exists.");
+        return;
+      }
+      const newId = "l_" + Date.now();
+      state.locations.push({ id: newId, name: name.trim(), status: "active", createdAt: Date.now() });
+      saveState();
+      render();
+      showToast(`Added site "${name}"`);
+    }
+
+    // Locations: Edit Location [NEW]
+    function editLocationName(id, newName) {
+      const loc = state.locations.find(l => l.id === id);
+      if (!loc) return;
+      loc.name = newName.trim();
+      saveState();
+      render();
+      showToast("Site name saved");
+    }
+
+    // Locations: Restore Archived Location [NEW]
+    function restoreLocation(id) {
+      const loc = state.locations.find(l => l.id === id);
+      if (!loc) return;
+      loc.status = "active";
+      saveState();
+      render();
+      showToast(`Restored site "${loc.name}"`);
+    }
+
+    // Locations: Archive Location [NEW]
+    function archiveLocation(id) {
+      const loc = state.locations.find(l => l.id === id);
+      if (!loc) return;
+      loc.status = "archived";
+      saveState();
+      render();
+      showToast(`Archived site "${loc.name}"`);
+    }
+
+    // Locations: Delete Location and associations [NEW]
+    function deleteLocationPermanently(id) {
+      const loc = state.locations.find(l => l.id === id);
+      if (!loc) return;
+      const name = loc.name;
+
+      state.locations = state.locations.filter(l => l.id !== id);
+
+      // Clean records (Set locationId to null for associated markings)
+      Object.keys(state.attendance).forEach(date => {
+        const record = state.attendance[date];
+        Object.keys(record).forEach(wId => {
+          if (record[wId].locationId === id) {
+            record[wId].locationId = null;
+          }
+        });
+      });
+
+      saveState();
+      render();
+      showToast(`Deleted site "${name}" permanently`);
+    }
+
+    // ==========================================
+    // 4. BACKUP / IMPORT & EXPORT LOGIC
+    // ==========================================
+    
+    // Exports whole Database state as JSON
+    function exportJSONBackup() {
+      const payload = {
+        workers: state.workers,
+        locations: state.locations,
+        attendance: state.attendance,
+        exportedAt: new Date().toISOString()
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `crew_tracker_db_backup_${getLocalDateString(new Date())}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("JSON backup exported");
+    }
+
+    // Restores database state from JSON
+    function importJSONBackup(fileEvent) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (!parsed.workers || !parsed.attendance) {
+            throw new Error("Missing database collections.");
+          }
+          if (confirm("Overwriting current data. Continue?")) {
+            state.workers = parsed.workers;
+            state.locations = parsed.locations || [];
+            state.attendance = parsed.attendance;
+            
+            migrateLegacyData();
+            saveState();
+            render();
+            showToast("Database restored successfully");
+          }
+        } catch (e) {
+          alert("Invalid backup file format.");
+          console.error(e);
+        }
+      };
+      reader.readAsText(fileEvent.target.files[0]);
+      document.getElementById("importBackupFileInput").value = "";
+    }
+
+    // Exports all attendance records chronologically as CSV
+    function exportAllCSVFile() {
+      if (Object.keys(state.attendance).length === 0) {
+        alert("No attendance records to export.");
+        return;
+      }
+
+      let csv = "data:text/csv;charset=utf-8,Date,Worker Name,Status,Location\n";
+      const dates = Object.keys(state.attendance).sort();
+
+      dates.forEach(date => {
+        const record = state.attendance[date];
+        Object.keys(record).forEach(wId => {
+          const worker = state.workers.find(w => w.id === wId);
+          const wName = worker ? worker.name : "Unknown Worker";
+          const status = record[wId].status;
+          
+          const loc = record[wId].locationId ? state.locations.find(l => l.id === record[wId].locationId) : null;
+          const locName = loc ? loc.name : "Unassigned";
+
+          csv += `${date},"${wName.replace(/"/g, '""')}",${status},"${locName.replace(/"/g, '""')}"\n`;
+        });
+      });
+
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", encodeURI(csv));
+      downloadAnchor.setAttribute("download", `crew_attendance_all_records_${getLocalDateString(new Date())}.csv`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("CSV history exported");
+    }
+
+    // Exports weekly billing summary as CSV [NEW]
+    function exportWeeklyCSV() {
+      const weekParts = state.summaryStartOfWeek.split('-');
+      const monday = new Date(weekParts[0], weekParts[1] - 1, weekParts[2]);
+      
+      const weekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const temp = new Date(monday);
+        temp.setDate(monday.getDate() + i);
+        weekDates.push(getLocalDateString(temp));
+      }
+
+      const locSummary = {};
+      weekDates.forEach(date => {
+        const record = state.attendance[date];
+        if (record) {
+          Object.keys(record).forEach(wId => {
+            const entry = record[wId];
+            if (entry && entry.status === "present" && entry.locationId) {
+              const locId = entry.locationId;
+              if (!locSummary[locId]) {
+                locSummary[locId] = { activeDaysSet: new Set(), totalWorkerDays: 0, workers: {} };
+              }
+              locSummary[locId].activeDaysSet.add(date);
+              locSummary[locId].totalWorkerDays++;
+              locSummary[locId].workers[wId] = (locSummary[locId].workers[wId] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      const activeKeys = Object.keys(locSummary);
+      if (activeKeys.length === 0) {
+        alert("No billing summaries to export for this week.");
+        return;
+      }
+
+      let csv = "data:text/csv;charset=utf-8,Location Name,Active Days,Total Worker-Days,Workers (Days worked)\n";
+      activeKeys.forEach(locId => {
+        const loc = state.locations.find(l => l.id === locId);
+        const name = loc ? loc.name : "Archived Site";
+        const s = locSummary[locId];
+
+        // Format workers list as a single column string: "John Doe (4d); Tyler Jenkins (2d)"
+        const workerStrings = Object.keys(s.workers).map(wId => {
+          const w = state.workers.find(worker => worker.id === wId);
+          const wName = w ? w.name : "Unknown Crew";
+          return `${wName} (${s.workers[wId]}d)`;
+        }).join("; ");
+
+        csv += `"${name.replace(/"/g, '""')}",${s.activeDaysSet.size},${s.totalWorkerDays},"${workerStrings.replace(/"/g, '""')}"\n`;
+      });
+
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", encodeURI(csv));
+      downloadAnchor.setAttribute("download", `crew_weekly_billing_report_${state.summaryStartOfWeek}.csv`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Weekly summary CSV exported");
+    }
+
+    function wipeDatabase() {
+      if (confirm("Permanently wipe all records? This cannot be undone.")) {
+        const confirmVal = prompt("Type 'RESET' to confirm purge:");
+        if (confirmVal === "RESET") {
+          localStorage.removeItem("crew_attendance_data");
+          initializeDefaults();
+          saveState();
+          render();
+          showToast("Data fully reset");
+        }
+      }
+    }
+
+    // ==========================================
+    // 5. WINDOW POPUPS (MODAL CONTROLLERS)
+    // ==========================================
+    const addWorkerModal = document.getElementById("addWorkerModal");
+    const editWorkerModal = document.getElementById("editWorkerModal");
+    const deleteWorkerModal = document.getElementById("deleteConfirmModal");
+    const addLocationModal = document.getElementById("addLocationModal");
+    const editLocationModal = document.getElementById("editLocationModal");
+    const deleteLocationModal = document.getElementById("deleteLocationConfirmModal");
+
+    function openModal(el) { el.classList.add("active"); }
+    function closeModal(el) { el.classList.remove("active"); }
+
+    // Worker Modal triggers
+    document.getElementById("openAddWorkerModalBtn").addEventListener("click", () => {
+      document.getElementById("newWorkerName").value = "";
+      openModal(addWorkerModal);
+      setTimeout(() => document.getElementById("newWorkerName").focus(), 120);
+    });
+    document.getElementById("closeAddWorkerModalBtn").addEventListener("click", () => closeModal(addWorkerModal));
+    document.getElementById("cancelAddWorkerBtn").addEventListener("click", () => closeModal(addWorkerModal));
+    document.getElementById("addWorkerForm").addEventListener("submit", () => {
+      const input = document.getElementById("newWorkerName");
+      if (input.value.trim()) {
+        addWorker(input.value.trim());
+        closeModal(addWorkerModal);
+      }
+    });
+
+    function openEditWorkerModal(id, name) {
+      document.getElementById("editWorkerId").value = id;
+      document.getElementById("editWorkerName").value = name;
+      openModal(editWorkerModal);
+      setTimeout(() => document.getElementById("editWorkerName").focus(), 120);
+    }
+    document.getElementById("closeEditWorkerModalBtn").addEventListener("click", () => closeModal(editWorkerModal));
+    document.getElementById("cancelEditWorkerBtn").addEventListener("click", () => closeModal(editWorkerModal));
+    document.getElementById("editWorkerForm").addEventListener("submit", () => {
+      const id = document.getElementById("editWorkerId").value;
+      const input = document.getElementById("editWorkerName");
+      if (input.value.trim()) {
+        editWorkerName(id, input.value.trim());
+        closeModal(editWorkerModal);
+      }
+    });
+
+    function openDeleteConfirmModal(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      document.getElementById("deleteWorkerId").value = id;
+      document.getElementById("deleteWorkerNamePrompt").innerText = `Archive or Delete ${worker.name}?`;
+      
+      const archiveBtn = document.getElementById("archiveWorkerConfirmBtn");
+      archiveBtn.style.display = worker.status === "archived" ? "none" : "inline-flex";
+      openModal(deleteWorkerModal);
+    }
+    document.getElementById("closeDeleteModalBtn").addEventListener("click", () => closeModal(deleteWorkerModal));
+    document.getElementById("cancelDeleteBtn").addEventListener("click", () => closeModal(deleteWorkerModal));
+    document.getElementById("archiveWorkerConfirmBtn").addEventListener("click", () => {
+      archiveWorker(document.getElementById("deleteWorkerId").value);
+      closeModal(deleteWorkerModal);
+    });
+    document.getElementById("deleteWorkerConfirmBtn").addEventListener("click", () => {
+      deleteWorkerPermanently(document.getElementById("deleteWorkerId").value);
+      closeModal(deleteWorkerModal);
+    });
+
+    // Location Modal triggers [NEW]
+    document.getElementById("openAddLocationModalBtn").addEventListener("click", () => {
+      document.getElementById("newLocationName").value = "";
+      openModal(addLocationModal);
+      setTimeout(() => document.getElementById("newLocationName").focus(), 120);
+    });
+    document.getElementById("closeAddLocationModalBtn").addEventListener("click", () => closeModal(addLocationModal));
+    document.getElementById("cancelAddLocationBtn").addEventListener("click", () => closeModal(addLocationModal));
+    document.getElementById("addLocationForm").addEventListener("submit", () => {
+      const input = document.getElementById("newLocationName");
+      if (input.value.trim()) {
+        addLocation(input.value.trim());
+        closeModal(addLocationModal);
+      }
+    });
+
+    function openEditLocationModal(id, name) {
+      document.getElementById("editLocationId").value = id;
+      document.getElementById("editLocationName").value = name;
+      openModal(editLocationModal);
+      setTimeout(() => document.getElementById("editLocationName").focus(), 120);
+    }
+    document.getElementById("closeEditLocationModalBtn").addEventListener("click", () => closeModal(editLocationModal));
+    document.getElementById("cancelEditLocationBtn").addEventListener("click", () => closeModal(editLocationModal));
+    document.getElementById("editLocationForm").addEventListener("submit", () => {
+      const id = document.getElementById("editLocationId").value;
+      const input = document.getElementById("editLocationName");
+      if (input.value.trim()) {
+        editLocationName(id, input.value.trim());
+        closeModal(editLocationModal);
+      }
+    });
+
+    function openDeleteLocationConfirmModal(id) {
+      const loc = state.locations.find(l => l.id === id);
+      if (!loc) return;
+      document.getElementById("deleteLocationId").value = id;
+      document.getElementById("deleteLocationNamePrompt").innerText = `Archive or Delete site ${loc.name}?`;
+      
+      const archiveBtn = document.getElementById("archiveLocationConfirmBtn");
+      archiveBtn.style.display = loc.status === "archived" ? "none" : "inline-flex";
+      openModal(deleteLocationModal);
+    }
+    document.getElementById("closeDeleteLocationModalBtn").addEventListener("click", () => closeModal(deleteLocationModal));
+    document.getElementById("cancelDeleteLocationBtn").addEventListener("click", () => closeModal(deleteLocationModal));
+    document.getElementById("archiveLocationConfirmBtn").addEventListener("click", () => {
+      archiveLocation(document.getElementById("deleteLocationId").value);
+      closeModal(deleteLocationModal);
+    });
+    document.getElementById("deleteLocationConfirmBtn").addEventListener("click", () => {
+      deleteLocationPermanently(document.getElementById("deleteLocationId").value);
+      closeModal(deleteLocationModal);
+    });
+
+    // Close overlays if clicked outside
+    window.addEventListener("click", (e) => {
+      if (e.target.classList.contains("modal-overlay")) closeModal(e.target);
+    });
+
+    // ==========================================
+    // 6. UTILITIES (TOASTS, NAVIGATION, DATES)
+    // ==========================================
+    let toastTimeout;
+    function showToast(msg) {
+      const toast = document.getElementById("toastNotice");
+      document.getElementById("toastMessage").innerText = msg;
+      toast.classList.add("active");
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove("active"), 2200);
+    }
+
+    // Register Tab clicks
+    document.querySelectorAll(".nav-item").forEach(item => {
+      item.addEventListener("click", () => switchTab(item.getAttribute("data-target")));
+    });
+
+    // History sub-tabs clicks
+    document.getElementById("histTabDate").addEventListener("click", () => {
+      document.getElementById("histTabDate").classList.add("active");
+      document.getElementById("histTabWorker").classList.remove("active");
+      document.getElementById("histTabLocation").classList.remove("active");
+      document.getElementById("subViewHistDate").style.display = "block";
+      document.getElementById("subViewHistWorker").style.display = "none";
+      document.getElementById("subViewHistLocation").style.display = "none";
+    });
+
+    document.getElementById("histTabWorker").addEventListener("click", () => {
+      document.getElementById("histTabDate").classList.remove("active");
+      document.getElementById("histTabWorker").classList.add("active");
+      document.getElementById("histTabLocation").classList.remove("active");
+      document.getElementById("subViewHistDate").style.display = "none";
+      document.getElementById("subViewHistWorker").style.display = "block";
+      document.getElementById("subViewHistLocation").style.display = "none";
+      renderHistoryView();
+    });
+
+    document.getElementById("histTabLocation").addEventListener("click", () => {
+      document.getElementById("histTabDate").classList.remove("active");
+      document.getElementById("histTabWorker").classList.remove("active");
+      document.getElementById("histTabLocation").classList.add("active");
+      document.getElementById("subViewHistDate").style.display = "none";
+      document.getElementById("subViewHistWorker").style.display = "none";
+      document.getElementById("subViewHistLocation").style.display = "block";
+      renderHistoryView();
+    });
+
+    // Date picker / Navigation offsets (Attendance Board)
+    function adjustDate(days) {
+      const parts = state.currentDate.split('-');
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + days);
+      state.currentDate = getLocalDateString(d);
+      renderAttendanceView();
+    }
+    document.getElementById("prevDayBtn").addEventListener("click", () => adjustDate(-1));
+    document.getElementById("nextDayBtn").addEventListener("click", () => adjustDate(1));
+    document.getElementById("attendanceDatePicker").addEventListener("change", (e) => {
+      if (e.target.value) {
+        state.currentDate = e.target.value;
+        renderAttendanceView();
+      }
+    });
+    document.getElementById("jumpToTodayBtn").addEventListener("click", () => {
+      state.currentDate = getLocalDateString(new Date());
+      renderAttendanceView();
+    });
+
+    // Default location selector change
+    document.getElementById("defaultLocationSelect").addEventListener("change", (e) => {
+      // Auto-pre-select location dropdown for all unmarked workers
+      const locId = e.target.value;
+      if (!locId) return;
+
+      const dateRecord = state.attendance[state.currentDate] || {};
+      const activeWorkers = state.workers.filter(w => w.status === "active");
+
+      activeWorkers.forEach(w => {
+        // If they are unmarked or marked Present, update their location
+        if (!dateRecord[w.id]) {
+          // Unmarked: We can just let the frontend select value pre-fill or set it in DB when marked.
+        } else if (dateRecord[w.id].status === "present") {
+          dateRecord[w.id].locationId = locId;
+        }
+      });
+      saveState();
+      renderAttendanceView();
+      showToast(`Default location updated`);
+    });
+
+    // Date picker (History Tab)
+    document.getElementById("histDatePicker").addEventListener("change", (e) => {
+      if (e.target.value) {
+        state.historyDate = e.target.value;
+        renderHistoryView();
+      }
+    });
+
+    // Dropdown filters (History Tab)
+    document.getElementById("histWorkerDropdown").addEventListener("change", (e) => renderWorkerStats(e.target.value));
+    document.getElementById("histLocationDropdown").addEventListener("change", (e) => renderLocationStats(e.target.value));
+
+    // Week selector / Navigation offsets (Summary Tab) [NEW]
+    function adjustWeek(weeks) {
+      const parts = state.summaryStartOfWeek.split('-');
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + (weeks * 7));
+      state.summaryStartOfWeek = getMondayDateString(d);
+      renderSummaryView();
+    }
+    document.getElementById("prevWeekBtn").addEventListener("click", () => adjustWeek(-1));
+    document.getElementById("nextWeekBtn").addEventListener("click", () => adjustWeek(1));
+    document.getElementById("summaryWeekDatePicker").addEventListener("change", (e) => {
+      if (e.target.value) {
+        state.summaryStartOfWeek = getMondayDateString(new Date(e.target.value));
+        renderSummaryView();
+      }
+    });
+    document.getElementById("jumpToThisWeekBtn").addEventListener("click", () => {
+      state.summaryStartOfWeek = getMondayDateString(new Date());
+      renderSummaryView();
+    });
+
+    // General search inputs
+    document.getElementById("searchCrewInput").addEventListener("input", renderCrewView);
+    document.getElementById("searchLocationInput").addEventListener("input", renderLocationsView);
+
+    // Quick attendance sheet actions
+    document.getElementById("markAllPresentLink").addEventListener("click", markAllPresent);
+    document.getElementById("clearAllAttendanceLink").addEventListener("click", clearAllAttendance);
+
+    // Data backups buttons
+    document.getElementById("exportBackupBtn").addEventListener("click", exportJSONBackup);
+    document.getElementById("exportCSVBtn").addEventListener("click", exportAllCSVFile);
+    document.getElementById("exportWeeklySummaryCSVBtn").addEventListener("click", exportWeeklyCSV);
+    document.getElementById("wipeDatabaseBtn").addEventListener("click", wipeDatabase);
+
+    const backupFileInput = document.getElementById("importBackupFileInput");
+    document.getElementById("importBackupTriggerBtn").addEventListener("click", () => backupFileInput.click());
+    backupFileInput.addEventListener("change", importJSONBackup);
+
+    // ==========================================
+    // 7. INITIALIZATION
+    // ==========================================
+    loadState();
+    render();
+
+    // Register Service Worker for offline operations
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js")
+          .then(reg => console.log("Service Worker registered successfully.", reg.scope))
+          .catch(err => console.error("Service Worker registration failed:", err));
+      });
+    }
+  </script>
+</body>
+</html>
