@@ -19,7 +19,12 @@ A simple, offline-friendly attendance and site tracking tool built for small con
   - **Payment Logs**: Log individual payments given with dates.
   - **Running Balance**: Automatically computes total given and the remaining unpaid balance.
   - **Export Salary Slip**: Download the chronological payment log as a CSV receipt for the worker's records.
-- **Offline & Local Storage**: Data is saved on the device using browser local storage (`localStorage`).
+- **Free Cloud Synchronization**: Share and sync data in real-time across multiple foremen devices:
+  - **Zero Setup / Serverless**: Uses Google Firebase Realtime Database.
+  - **Secret Sync Code**: Simply enter a shared code (e.g. `steel-crew-2026`) on any phone to link databases instantly.
+  - **Conflict Prompts**: Asks whether to overwrite local data or restore cloud records when connecting.
+  - **Custom Databases**: Optionally specify a custom database URL under advanced settings for complete privacy.
+- **Offline & Local Storage**: Data is saved on the device using browser local storage (`localStorage`). Synced devices will queue up offline changes and push them automatically as soon as internet is restored.
 - **Data Portability**: Full database backups via JSON import/export, and complete master report exports to CSV.
 - **Installable (PWA)**: Add the app to your phone's home screen or desktop to open it instantly offline.
 
@@ -48,10 +53,15 @@ attendance-tracker/
    - Fill in the "Log Payment Given" form to record payments with amounts and dates.
    - Inspect the payment log list and the computed unpaid balance card.
    - Click **Export Slip** to download their payment ledger as a CSV.
-4. **Review Invoices**:
+4. **Cloud Synchronization**:
+   - Go to **Settings** tab -> Check the **Cloud Sync & Backups** section.
+   - Enter a secret **Sync Code** of your choice (or click **Random** to generate one).
+   - Click **Connect & Sync Cloud**. If a backup exists, choose whether to Restore (overwrite local) or Overwrite (push local to cloud).
+   - Share this Sync Code with other foremen to view and update logs concurrently in real-time.
+5. **Review Invoices**:
    - Go to **Summary** tab -> Check the client summary for the week.
    - Click **Export Weekly CSV** to download the invoice records.
-5. **Data Backups**:
+6. **Data Backups**:
    - Go to **Settings** -> Export JSON files occasionally to safeguard your database from manual browser cache cleans.
 
 ## Installation (PWA)
@@ -62,4 +72,4 @@ attendance-tracker/
 
 ---
 
-*Note: Since all data lives in your browser's site cache, avoid clearing site cookies/storage unless you have exported a JSON backup.*
+*Note: Since all data lives in your browser's site cache, avoid clearing site cookies/storage unless you have configured Cloud Sync or exported a JSON backup.*

@@ -15,6 +15,10 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
 
+  <!-- Google Firebase Realtime Database SDKs (Compat client namespace) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
   <!-- Google Fonts: Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1552,6 +1556,53 @@
     <!-- 7. SETTINGS VIEW -->
     <section id="viewSettings" class="view-panel">
       
+      <!-- Cloud Synchronization Section [NEW] -->
+      <div class="card settings-section" style="margin-bottom: 1.25rem;">
+        <h2>Cloud Sync & Backups</h2>
+        <p>Sync your data in real-time across multiple devices using a simple secret Sync Code.</p>
+        
+        <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 0.85rem; border-radius: var(--radius-md); margin-bottom: 0.85rem; margin-top: 0.4rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Sync Status:</span>
+            <span id="syncStatusBadge" class="badge badge-unmarked">Not Connected</span>
+          </div>
+
+          <!-- Connection Form -->
+          <div id="syncSetupForm">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label for="syncCodeInput">Secret Sync Code / Crew Name</label>
+              <div style="display: flex; gap: 0.4rem;">
+                <input type="text" class="input-text" id="syncCodeInput" placeholder="e.g. green-valley-concrete-2026" style="text-transform: lowercase; font-size: 0.85rem; padding: 0.5rem 0.75rem;" autocomplete="off">
+                <button type="button" class="btn btn-secondary" id="generateSyncCodeBtn" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;" title="Generate Random Code">Random</button>
+              </div>
+              <span style="font-size: 0.7rem; color: var(--text-dark); margin-top: 2px; display: block;">Choose a unique secret phrase. Share it with other foremen to sync real-time.</span>
+            </div>
+            <button type="button" class="btn btn-primary" id="connectSyncBtn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem;">Connect & Sync Cloud</button>
+          </div>
+
+          <!-- Disconnect Info -->
+          <div id="syncConnectedInfo" style="display: none;">
+            <div style="font-size: 0.85rem; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: space-between;">
+              <span>Linked to Cloud Code:</span>
+              <strong style="color: var(--accent-indigo);" id="connectedCodeLabel">none</strong>
+            </div>
+            <button type="button" class="btn btn-danger" id="disconnectSyncBtn" style="width: 100%; font-size: 0.8rem; padding: 0.45rem;">Disconnect Cloud Sync</button>
+          </div>
+        </div>
+
+        <!-- Custom Firebase Config Details -->
+        <div style="margin-top: 0.5rem;">
+          <button class="text-link" id="togglePrivateDbLink" style="font-size: 0.75rem;">Configure Custom Firebase Database (Advanced)</button>
+          <div id="privateDbConfigArea" style="display: none; margin-top: 0.65rem; border-top: 1px dashed var(--border-color); padding-top: 0.65rem;">
+            <div class="form-group" style="margin-bottom: 0.6rem;">
+              <label for="customDbUrlInput">Custom Database URL (optional)</label>
+              <input type="text" class="input-text" id="customDbUrlInput" placeholder="e.g. https://your-database-name-default-rtdb.firebaseio.com/" style="font-size:0.85rem; padding:0.45rem 0.65rem;">
+            </div>
+            <button type="button" class="btn btn-secondary" id="saveCustomDbBtn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Apply Database Settings</button>
+          </div>
+        </div>
+      </div>
+      
       <!-- Backups Section -->
       <div class="card settings-section">
         <h2>Data Management</h2>
@@ -1824,7 +1875,10 @@
       summaryStartOfWeek: "",
       // Salary state
       selectedSalaryWorkerId: "",
-      isEditingSalary: false
+      isEditingSalary: false,
+      // Sync state
+      syncCode: "",
+      customDbUrl: ""
     };
 
     // Load state from localStorage with legacy migration
@@ -1862,6 +1916,17 @@
         }
       }
 
+      loadSyncConfig();
+      if (state.syncCode) {
+        // Auto connect on startup
+        setTimeout(() => {
+          if (initFirebase()) {
+            listenToCloudEdits();
+            toggleSyncSetupUI(true);
+          }
+        }, 300);
+      }
+
       saveState();
     }
 
@@ -1878,6 +1943,9 @@
         attendance: state.attendance
       };
       localStorage.setItem("crew_attendance_data", JSON.stringify(payload));
+      
+      // Auto push to cloud if connected
+      pushLocalToCloud();
     }
 
     // Database structure migration (Converts legacy status strings to objects)
@@ -3235,6 +3303,234 @@
     }
 
     // ==========================================
+    // 3.5 CLOUD SYNCHRONIZATION ENGINE [NEW]
+    // ==========================================
+    let firebaseDb = null;
+    let firebaseRef = null;
+    let cloudListener = null;
+
+    function saveSyncConfig(code, url) {
+      localStorage.setItem("crew_sync_config", JSON.stringify({ syncCode: code, customDbUrl: url }));
+    }
+
+    function loadSyncConfig() {
+      const raw = localStorage.getItem("crew_sync_config");
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          state.syncCode = parsed.syncCode || "";
+          state.customDbUrl = parsed.customDbUrl || "";
+          
+          // Prefill database url field
+          if (state.customDbUrl) {
+            document.getElementById("customDbUrlInput").value = state.customDbUrl;
+          }
+        } catch(e) {
+          console.error("Error loading sync configuration", e);
+        }
+      }
+    }
+
+    function initFirebase() {
+      if (firebaseDb) return true;
+      try {
+        const dbUrl = state.customDbUrl || "https://crew-attendance-e2e4b-default-rtdb.firebaseio.com/";
+        
+        // Initialize app
+        const config = { databaseURL: dbUrl };
+        firebase.initializeApp(config, "attendance-tracker-sync-" + Date.now());
+        
+        firebaseDb = firebase.app(firebase.apps[firebase.apps.length - 1].name).database();
+
+        // Listen for connection states
+        firebaseDb.ref(".info/connected").on("value", (snap) => {
+          const isOnline = snap.val() === true;
+          updateSyncStatus(isOnline ? "online" : "offline");
+        });
+
+        return true;
+      } catch (e) {
+        console.error("Firebase init failed", e);
+        showToast("Firebase connection failed");
+        updateSyncStatus("disconnected");
+        return false;
+      }
+    }
+
+    function connectCloudSync(code) {
+      if (!code) {
+        alert("Please enter a secret Sync Code.");
+        return;
+      }
+      code = code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""); // sanitize
+      if (!code) {
+        alert("Sync Code can only contain letters, numbers, hyphens, and underscores.");
+        return;
+      }
+
+      state.syncCode = code;
+      saveSyncConfig(state.syncCode, state.customDbUrl);
+
+      if (!initFirebase()) return;
+
+      const ref = firebaseDb.ref("crews/" + code);
+      updateSyncStatus("connecting");
+
+      ref.once("value").then(snapshot => {
+        const cloudData = snapshot.val();
+        
+        if (cloudData) {
+          // Conflict resolution dialog
+          const choice = confirm(
+            `Cloud backup found for "${code}".\n\n` +
+            `Click [OK] to RESTORE cloud data (this replaces your local data).\n\n` +
+            `Click [Cancel] to OVERWRITE cloud data with your current local data.`
+          );
+          
+          if (choice) {
+            // Restore from cloud
+            state.workers = cloudData.workers || [];
+            state.locations = cloudData.locations || [];
+            state.attendance = cloudData.attendance || {};
+            
+            migrateLegacyData();
+            saveState();
+            render();
+            showToast("Restored data from cloud!");
+          } else {
+            // Push local data
+            pushLocalToCloud();
+            showToast("Cloud updated with local data!");
+          }
+        } else {
+          // Initialize cloud path
+          pushLocalToCloud();
+          showToast("Connected! Backed up local data.");
+        }
+
+        listenToCloudEdits();
+        toggleSyncSetupUI(true);
+      }).catch(err => {
+        console.error("Connect Cloud failed", err);
+        alert("Could not connect to Firebase database. Check custom URL or network connection.");
+        updateSyncStatus("disconnected");
+      });
+    }
+
+    function listenToCloudEdits() {
+      if (!firebaseDb || !state.syncCode) return;
+      const ref = firebaseDb.ref("crews/" + state.syncCode);
+      
+      if (cloudListener) {
+        ref.off("value", cloudListener);
+      }
+
+      let isFirstLoad = true;
+      cloudListener = ref.on("value", snapshot => {
+        const cloudData = snapshot.val();
+        if (!cloudData) return;
+
+        const localPayload = {
+          workers: state.workers,
+          locations: state.locations,
+          attendance: state.attendance
+        };
+
+        const localStr = JSON.stringify(localPayload);
+        const cloudStr = JSON.stringify({
+          workers: cloudData.workers || [],
+          locations: cloudData.locations || [],
+          attendance: cloudData.attendance || {}
+        });
+
+        if (localStr !== cloudStr) {
+          state.workers = cloudData.workers || [];
+          state.locations = cloudData.locations || [];
+          state.attendance = cloudData.attendance || {};
+          
+          migrateLegacyData();
+          localStorage.setItem("crew_attendance_data", JSON.stringify(localPayload));
+          render();
+          
+          if (!isFirstLoad) {
+            showToast("Sync: Data updated from cloud");
+          }
+        }
+        isFirstLoad = false;
+      });
+    }
+
+    function pushLocalToCloud() {
+      if (!firebaseDb || !state.syncCode) return;
+      
+      const payload = {
+        workers: state.workers,
+        locations: state.locations,
+        attendance: state.attendance,
+        lastUpdated: Date.now()
+      };
+
+      firebaseDb.ref("crews/" + state.syncCode).set(payload)
+        .then(() => {
+          // Success
+        })
+        .catch(err => {
+          console.error("Cloud push failed", err);
+        });
+      }
+
+      function disconnectCloudSync() {
+        if (confirm("Disconnect from cloud sync? Your local data remains safe, but it will no longer sync with other devices.")) {
+          if (firebaseDb && state.syncCode && cloudListener) {
+            firebaseDb.ref("crews/" + state.syncCode).off("value", cloudListener);
+          }
+          
+          state.syncCode = "";
+          saveSyncConfig("", state.customDbUrl);
+          
+          updateSyncStatus("disconnected");
+          toggleSyncSetupUI(false);
+          showToast("Cloud sync disconnected");
+        }
+      }
+
+      function updateSyncStatus(status) {
+        const badge = document.getElementById("syncStatusBadge");
+        if (!badge) return;
+
+        badge.className = "badge";
+        if (status === "disconnected") {
+          badge.innerText = "Not Connected";
+          badge.classList.add("badge-unmarked");
+        } else if (status === "connecting") {
+          badge.innerText = "Connecting...";
+          badge.classList.add("badge-location");
+        } else if (status === "online") {
+          badge.innerText = "Synced (Online)";
+          badge.classList.add("badge-present");
+        } else if (status === "offline") {
+          badge.innerText = "Offline (Cached)";
+          badge.classList.add("badge-absent");
+        }
+      }
+
+      function toggleSyncSetupUI(isConnected) {
+        const setupForm = document.getElementById("syncSetupForm");
+        const connectedInfo = document.getElementById("syncConnectedInfo");
+        const connectedCodeLabel = document.getElementById("connectedCodeLabel");
+
+        if (isConnected) {
+          setupForm.style.display = "none";
+          connectedInfo.style.display = "block";
+          connectedCodeLabel.innerText = state.syncCode;
+        } else {
+          setupForm.style.display = "block";
+          connectedInfo.style.display = "none";
+          document.getElementById("syncCodeInput").value = "";
+        }
+      }
+
+    // ==========================================
     // 4. BACKUP / IMPORT & EXPORT LOGIC
     // ==========================================
     
@@ -3684,6 +3980,41 @@
     const backupFileInput = document.getElementById("importBackupFileInput");
     document.getElementById("importBackupTriggerBtn").addEventListener("click", () => backupFileInput.click());
     backupFileInput.addEventListener("change", importJSONBackup);
+
+    // Cloud Sync Triggers [NEW]
+    document.getElementById("connectSyncBtn").addEventListener("click", () => {
+      const code = document.getElementById("syncCodeInput").value;
+      connectCloudSync(code);
+    });
+
+    document.getElementById("generateSyncCodeBtn").addEventListener("click", () => {
+      const adjectives = ["blue", "green", "red", "swift", "smart", "heavy", "iron", "gold", "solid", "rapid"];
+      const nouns = ["crew", "force", "team", "concrete", "builders", "squad", "masons", "paving", "works", "roofing"];
+      const num = Math.floor(Math.random() * 900) + 100;
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const noun = nouns[Math.floor(Math.random() * nouns.length)];
+      document.getElementById("syncCodeInput").value = `${adj}-${noun}-${num}`;
+    });
+
+    document.getElementById("disconnectSyncBtn").addEventListener("click", disconnectCloudSync);
+
+    document.getElementById("togglePrivateDbLink").addEventListener("click", () => {
+      const area = document.getElementById("privateDbConfigArea");
+      area.style.display = area.style.display === "none" ? "block" : "none";
+    });
+
+    document.getElementById("saveCustomDbBtn").addEventListener("click", () => {
+      const customUrl = document.getElementById("customDbUrlInput").value.trim();
+      state.customDbUrl = customUrl;
+      saveSyncConfig(state.syncCode, customUrl);
+      // Force database refresh
+      firebaseDb = null;
+      if (state.syncCode) {
+        connectCloudSync(state.syncCode);
+      } else {
+        showToast("Custom database URL saved");
+      }
+    });
 
     // ==========================================
     // 7. INITIALIZATION
