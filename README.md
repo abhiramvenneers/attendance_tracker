@@ -14,6 +14,11 @@ A simple, offline-friendly attendance and site tracking tool built for small con
   - Total worker-days (distinct workers × active days) to invoice the client.
   - List of workers deployed and how many days each worked there.
   - **Export Billing CSV**: Download weekly breakdowns ready to email or import into Excel/Sheets.
+- **Manual Salary Ledger**: Track payments worker-by-worker manually:
+  - **Total Salary Agreed**: Manually enter the agreed total pay for the worker.
+  - **Payment Logs**: Log individual payments given with dates.
+  - **Running Balance**: Automatically computes total given and the remaining unpaid balance.
+  - **Export Salary Slip**: Download the chronological payment log as a CSV receipt for the worker's records.
 - **Offline & Local Storage**: Data is saved on the device using browser local storage (`localStorage`).
 - **Data Portability**: Full database backups via JSON import/export, and complete master report exports to CSV.
 - **Installable (PWA)**: Add the app to your phone's home screen or desktop to open it instantly offline.
@@ -37,10 +42,16 @@ attendance-tracker/
    - Go to **Today** tab -> Select a default location for today (optional, fills worker dropdowns).
    - Toggle **Present** or **Absent** for each worker.
    - Adjust site selections in the dropdowns next to present workers.
-3. **Review Invoices**:
+3. **Manage Salaries**:
+   - Go to **Salary** tab -> Select a worker from the sidebar list.
+   - Click **Edit** next to "Total Salary Agreed/Due" to input the target amount.
+   - Fill in the "Log Payment Given" form to record payments with amounts and dates.
+   - Inspect the payment log list and the computed unpaid balance card.
+   - Click **Export Slip** to download their payment ledger as a CSV.
+4. **Review Invoices**:
    - Go to **Summary** tab -> Check the client summary for the week.
    - Click **Export Weekly CSV** to download the invoice records.
-4. **Data Backups**:
+5. **Data Backups**:
    - Go to **Settings** -> Export JSON files occasionally to safeguard your database from manual browser cache cleans.
 
 ## Installation (PWA)
