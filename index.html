@@ -2557,6 +2557,33 @@
         });
       }
 
+      // Format extra job expense logs
+      let expensesHtml = "";
+      const sortedExpenses = [...(selectedLoc.expenses || [])].sort((a,b) => b.date.localeCompare(a.date));
+      if (sortedExpenses.length === 0) {
+        expensesHtml = `<div style="text-align: center; color: var(--text-dark); padding: 0.85rem; font-size: 0.8rem;">No extra job expenses logged.</div>`;
+      } else {
+        sortedExpenses.forEach(exp => {
+          expensesHtml += `
+            <div class="timeline-item" style="padding:0.4rem 0.65rem; align-items:center;">
+              <div style="min-width:0; flex:1;">
+                <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem;">
+                  <span class="badge badge-unmarked" style="font-size:0.6rem; text-transform:uppercase; padding:0.15rem 0.35rem;">${exp.category || 'Other'}</span>
+                  <span class="timeline-date" style="margin:0;">${formatFriendlyDate(exp.date)}</span>
+                </div>
+                ${exp.note ? `<div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${exp.note}</div>` : ''}
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-left:0.5rem;">
+                <strong style="color:var(--color-absent); font-size:0.85rem;">-₹${exp.amount.toLocaleString()}</strong>
+                <button class="btn btn-icon-only delete-job-expense-btn" data-expense-id="${exp.id}" style="padding:0.25rem; background:none; border:none; color:var(--text-dark);" title="Delete expense">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2.5" style="color:var(--color-absent)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
       // Render Action buttons for site: edit modal, archive/delete modal
       let actionButtonsHtml = "";
       if (selectedLoc.status === "archived") {
@@ -2578,6 +2605,9 @@
           </button>
         `;
       }
+
+      // Financial P&L summary for this location
+      const fin = getLocationFinancials(selectedLoc.id);
 
       detailsContainer.innerHTML = `
         <div class="card" style="padding: 1.25rem; display:flex; flex-direction:column; gap:0.85rem;">
