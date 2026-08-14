@@ -1361,17 +1361,41 @@
         </button>
       </div>
 
-      <!-- Search Box -->
-      <div class="search-bar-container">
-        <span class="search-icon">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </span>
-        <input type="text" class="input-text search-input" id="searchLocationInput" placeholder="Search jobs / clients...">
+      <!-- Global Billing Dashboard -->
+      <div class="attendance-dashboard" style="margin-bottom: 1.25rem;">
+        <div class="dashboard-pill" style="border-left: 3px solid var(--accent-indigo);">
+          <span class="dashboard-pill-value" id="globalContractsTotal">₹0</span>
+          <span class="dashboard-pill-label">Total Contracts</span>
+        </div>
+        <div class="dashboard-pill" style="border-left: 3px solid var(--color-present);">
+          <span class="dashboard-pill-value" id="globalReceivedTotal" style="color: var(--color-present);">₹0</span>
+          <span class="dashboard-pill-label">Total Received</span>
+        </div>
+        <div class="dashboard-pill" style="border-left: 3px solid var(--color-absent);">
+          <span class="dashboard-pill-value" id="globalOutstandingTotal" style="color: var(--color-absent);">₹0</span>
+          <span class="dashboard-pill-label">Outstanding</span>
+        </div>
       </div>
 
-      <!-- Locations List Container -->
-      <div class="crew-directory-grid" id="locationsDirectoryContainer">
-        <!-- Rendered dynamically -->
+      <!-- Split Container -->
+      <div class="salary-container">
+        <!-- Left Sidebar: Search & Site List -->
+        <div class="salary-sidebar">
+          <div class="search-bar-container" style="margin-bottom: 0.75rem;">
+            <span class="search-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            <input type="text" class="input-text search-input" id="searchLocationInput" placeholder="Search sites...">
+          </div>
+          <div id="locationsDirectoryContainer" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 380px; overflow-y: auto; padding-right: 2px;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Right Side: Details dashboard and ledger -->
+        <div class="salary-content" id="locationDetailsContainer">
+          <!-- Rendered dynamically -->
+        </div>
       </div>
     </section>
 
@@ -1878,7 +1902,10 @@
       isEditingSalary: false,
       // Sync state
       syncCode: "",
-      customDbUrl: ""
+      customDbUrl: "",
+      // Sites Billing state
+      selectedSiteId: "",
+      isEditingContract: false
     };
 
     // Load state from localStorage with legacy migration
@@ -1913,6 +1940,16 @@
           state.selectedSalaryWorkerId = activeOnly[0].id;
         } else {
           state.selectedSalaryWorkerId = state.workers[0].id;
+        }
+      }
+
+      // Default select site id
+      if (state.locations.length > 0) {
+        const activeOnly = state.locations.filter(l => l.status === "active");
+        if (activeOnly.length > 0) {
+          state.selectedSiteId = activeOnly[0].id;
+        } else {
+          state.selectedSiteId = state.locations[0].id;
         }
       }
 
@@ -1982,7 +2019,7 @@
         });
       });
 
-      // 3. Ensure totalSalary and payments exist for each worker [NEW]
+      // 3. Ensure totalSalary and payments exist for each worker
       state.workers.forEach(worker => {
         if (worker.totalSalary === undefined) {
           worker.totalSalary = 0;
@@ -1990,6 +2027,18 @@
         }
         if (!worker.payments) {
           worker.payments = [];
+          isMigrated = true;
+        }
+      });
+
+      // 4. Ensure contractAmount and clientPayments exist for each location
+      state.locations.forEach(loc => {
+        if (loc.contractAmount === undefined) {
+          loc.contractAmount = 0;
+          isMigrated = true;
+        }
+        if (!loc.clientPayments) {
+          loc.clientPayments = [];
           isMigrated = true;
         }
       });
@@ -2306,7 +2355,34 @@
 
     // C: RENDER LOCATIONS VIEW
     function renderLocationsView() {
-      const container = document.getElementById("locationsDirectoryContainer");
+      // 1. Calculate Global Totals Dashboard
+      let globalContracts = 0;
+      let globalReceived = 0;
+      
+      state.locations.forEach(loc => {
+        globalContracts += (loc.contractAmount || 0);
+        const paid = (loc.clientPayments || []).reduce((sum, p) => sum + p.amount, 0);
+        globalReceived += paid;
+      });
+      
+      const globalOutstanding = globalContracts - globalReceived;
+      
+      document.getElementById("globalContractsTotal").innerText = `₹${globalContracts.toLocaleString()}`;
+      document.getElementById("globalReceivedTotal").innerText = `₹${globalReceived.toLocaleString()}`;
+      
+      const outstandingEl = document.getElementById("globalOutstandingTotal");
+      outstandingEl.innerText = `₹${globalOutstanding.toLocaleString()}`;
+      if (globalOutstanding > 0) {
+        outstandingEl.style.color = "var(--color-halfday)";
+      } else if (globalOutstanding === 0 && globalContracts > 0) {
+        outstandingEl.style.color = "var(--color-present)";
+      } else {
+        outstandingEl.style.color = "var(--text-main)";
+      }
+
+      // 2. Render Left Sidebar roster list
+      const sidebarContainer = document.getElementById("locationsDirectoryContainer");
+      const detailsContainer = document.getElementById("locationDetailsContainer");
       const query = document.getElementById("searchLocationInput").value.trim().toLowerCase();
       
       let filtered = state.locations.filter(l => l.name.toLowerCase().includes(query));
@@ -2319,7 +2395,8 @@
       document.getElementById("locationCountSub").innerText = `${activeCount} active, ${state.locations.length - activeCount} archived`;
 
       if (filtered.length === 0) {
-        container.innerHTML = `
+        sidebarContainer.innerHTML = `<div style="text-align: center; color: var(--text-dark); padding: 1.5rem; font-size: 0.85rem;">No sites found.</div>`;
+        detailsContainer.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">
               <svg viewBox="0 0 24 24" width="24" height="24" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -2331,65 +2408,288 @@
         return;
       }
 
-      container.innerHTML = "";
+      // Validate selected site
+      if (!state.selectedSiteId || !state.locations.some(l => l.id === state.selectedSiteId)) {
+        state.selectedSiteId = filtered[0].id;
+      }
+
+      sidebarContainer.innerHTML = "";
       filtered.forEach(loc => {
-        const stats = getLocationAttendanceStats(loc.id);
-        const card = document.createElement("div");
-        card.className = "card crew-card";
-        
-        let badgeHtml = loc.status === "archived" ? `<span class="badge badge-archived" style="margin-left: 0.4rem;">Archived</span>` : "";
-        let actionButtons = "";
+        const budget = loc.contractAmount || 0;
+        const paid = (loc.clientPayments || []).reduce((sum, p) => sum + p.amount, 0);
+        const balance = budget - paid;
 
-        if (loc.status === "archived") {
-          actionButtons = `
-            <button class="btn btn-icon-only restore-loc-btn" data-loc-id="${loc.id}" title="Un-archive">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-            </button>
-            <button class="btn btn-icon-only delete-loc-btn" data-loc-id="${loc.id}" title="Delete Permanently">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2" style="color: var(--color-absent);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          `;
-        } else {
-          actionButtons = `
-            <button class="btn btn-icon-only edit-loc-btn" data-loc-id="${loc.id}" data-loc-name="${loc.name}" title="Edit Name">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            </button>
-            <button class="btn btn-icon-only delete-loc-btn" data-loc-id="${loc.id}" title="Archive/Remove">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          `;
-        }
+        let badgeHtml = loc.status === "archived" ? `<span class="badge badge-archived" style="font-size:0.6rem; padding:0.1rem 0.3rem;">Archived</span>` : "";
 
-        card.innerHTML = `
-          <div class="avatar avatar-loc">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          </div>
-          <div class="crew-info">
-            <div class="worker-name">${loc.name}${badgeHtml}</div>
-            <div class="crew-stats-badge">
-              Active Days: <strong>${stats.activeDays}</strong> | Worker-Days billed: <strong>${stats.totalWorkerDays}</strong>
+        const item = document.createElement("div");
+        item.className = `salary-worker-item ${state.selectedSiteId === loc.id ? 'active' : ''}`;
+        item.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
+            <div class="avatar avatar-loc" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2.5" style="color:white;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <div style="min-width: 0;">
+              <div style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${loc.name}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted);">${badgeHtml || (balance === 0 && budget > 0 ? '<span style="color:var(--color-present)">Paid</span>' : `Owed: ₹${balance.toLocaleString()}`)}</div>
             </div>
           </div>
-          <div class="crew-actions">${actionButtons}</div>
         `;
-        container.appendChild(card);
+        item.addEventListener("click", () => {
+          state.selectedSiteId = loc.id;
+          state.isEditingContract = false;
+          renderLocationsView();
+        });
+        sidebarContainer.appendChild(item);
       });
 
-      // Bind events
-      container.querySelectorAll(".edit-loc-btn").forEach(btn => {
+      // 3. Render Right details panel
+      const selectedLoc = state.locations.find(l => l.id === state.selectedSiteId);
+      if (!selectedLoc) return;
+
+      const budget = selectedLoc.contractAmount || 0;
+      const paid = (selectedLoc.clientPayments || []).reduce((sum, p) => sum + p.amount, 0);
+      const balance = budget - paid;
+
+      // Inline edit for contract value
+      let contractHtml = "";
+      if (state.isEditingContract) {
+        contractHtml = `
+          <div class="inline-edit-salary-row">
+            <input type="number" class="input-text" id="editContractAmountInput" value="${budget}" style="padding:0.4rem 0.6rem; font-size:0.85rem; max-width:140px;" placeholder="Contract Value">
+            <button class="btn btn-primary" id="saveContractAmountBtn" style="padding:0.45rem 0.85rem; font-size:0.75rem;">Save</button>
+            <button class="btn btn-secondary" id="cancelContractAmountBtn" style="padding:0.45rem 0.85rem; font-size:0.75rem;">Cancel</button>
+          </div>
+        `;
+      } else {
+        contractHtml = `
+          <div style="display:flex; align-items:center; gap:0.4rem; margin-top:2px;">
+            <strong style="font-size:1.2rem; color:var(--text-main);">₹${budget.toLocaleString()}</strong>
+            <button class="text-link" id="toggleEditContractLink" style="font-size:0.75rem;">Edit</button>
+          </div>
+        `;
+      }
+
+      // Balance status glows
+      let balanceColorStyle = "color:var(--text-main);";
+      let balanceGlowBorder = "border: 1px solid var(--border-color);";
+      if (balance > 0) {
+        balanceColorStyle = "color:var(--color-halfday);";
+        balanceGlowBorder = "border: 1px solid rgba(245, 158, 11, 0.2); background:var(--color-halfday-glow);";
+      } else if (balance === 0 && budget > 0) {
+        balanceColorStyle = "color:var(--color-present);";
+        balanceGlowBorder = "border: 1px solid rgba(16, 185, 129, 0.2); background:var(--color-present-glow);";
+      }
+
+      // Format client receipts
+      let logsHtml = "";
+      const sortedPayments = [...(selectedLoc.clientPayments || [])].sort((a,b) => b.date.localeCompare(a.date));
+      if (sortedPayments.length === 0) {
+        logsHtml = `<div style="text-align: center; color: var(--text-dark); padding: 1rem; font-size: 0.85rem;">No payments logged yet.</div>`;
+      } else {
+        sortedPayments.forEach(p => {
+          logsHtml += `
+            <div class="timeline-item" style="padding:0.4rem 0.65rem;">
+              <span class="timeline-date">${formatFriendlyDate(p.date)}</span>
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <strong style="color:var(--color-present)">+₹${p.amount.toLocaleString()}</strong>
+                <button class="btn btn-icon-only delete-client-payment-btn" data-payment-id="${p.id}" style="padding:0.25rem; background:none; border:none; color:var(--text-dark);" title="Delete receipt">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2.5" style="color:var(--color-absent)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // Location details and Worker deployments
+      const stats = getLocationAttendanceStats(selectedLoc.id);
+      let deploymentsHtml = "";
+      if (stats.historyList.length === 0) {
+        deploymentsHtml = `<div style="text-align: center; color: var(--text-dark); padding: 1rem; font-size: 0.85rem;">No worker deployments yet.</div>`;
+      } else {
+        stats.historyList.forEach(entry => {
+          const namesList = entry.workers.map(wId => {
+            const w = state.workers.find(worker => worker.id === wId);
+            return w ? w.name : "Unknown Crew";
+          }).join(", ");
+
+          deploymentsHtml += `
+            <div class="timeline-item" style="flex-direction:column; align-items:flex-start; gap:4px; padding:0.5rem 0.65rem;">
+              <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.85rem; font-weight: 600;">
+                <span>${formatFriendlyDate(entry.date)}</span>
+                <span class="badge badge-present" style="text-transform: none;">${entry.workers.length} crew present</span>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">${namesList}</p>
+            </div>
+          `;
+        });
+      }
+
+      // Render Action buttons for site: edit modal, archive/delete modal
+      let actionButtonsHtml = "";
+      if (selectedLoc.status === "archived") {
+        actionButtonsHtml = `
+          <button class="btn btn-secondary restore-loc-btn" data-loc-id="${selectedLoc.id}" style="padding:0.4rem 0.75rem; font-size:0.75rem;" title="Restore site">
+            Un-Archive
+          </button>
+          <button class="btn btn-danger delete-loc-btn" data-loc-id="${selectedLoc.id}" style="padding:0.4rem 0.75rem; font-size:0.75rem;" title="Delete Permanently">
+            Delete
+          </button>
+        `;
+      } else {
+        actionButtonsHtml = `
+          <button class="btn btn-secondary edit-loc-btn" data-loc-id="${selectedLoc.id}" data-loc-name="${selectedLoc.name}" style="padding:0.4rem 0.75rem; font-size:0.75rem;">
+            Rename Site
+          </button>
+          <button class="btn btn-danger delete-loc-btn" data-loc-id="${selectedLoc.id}" style="padding:0.4rem 0.75rem; font-size:0.75rem;">
+            Remove Site
+          </button>
+        `;
+      }
+
+      detailsContainer.innerHTML = `
+        <div class="card" style="padding: 1.25rem; display:flex; flex-direction:column; gap:0.85rem;">
+          
+          <!-- Details Header -->
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div class="avatar avatar-loc">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2.5" style="color:white;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <div>
+                <h3 style="font-weight:700; font-size:1.1rem; color:var(--text-main);">${selectedLoc.name}</h3>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${selectedLoc.status === 'archived' ? '<span class="badge badge-archived">Archived</span>' : 'Active Site'}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:0.35rem;">
+              <button class="btn btn-secondary" id="exportClientPaymentsCSVBtn" style="padding:0.35rem 0.65rem; font-size:0.75rem;">
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line></svg>
+                Export Client Slip
+              </button>
+            </div>
+          </div>
+
+          <!-- Contract Amount Input Section -->
+          <div style="background:rgba(255,255,255,0.02); padding:0.65rem 0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.02em;">Agreed Client Contract Value:</div>
+            ${contractHtml}
+          </div>
+
+          <!-- Billing Cards -->
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.5rem;">
+            <div class="metric-card" style="padding: 0.55rem; background:rgba(0,0,0,0.15);">
+              <div class="metric-value" style="font-size:1.05rem;">₹${budget.toLocaleString()}</div>
+              <div class="metric-label" style="font-size:0.55rem;">Contract</div>
+            </div>
+            <div class="metric-card" style="padding: 0.55rem; background:rgba(0,0,0,0.15);">
+              <div class="metric-value" style="font-size:1.05rem; color:var(--color-present);">₹${paid.toLocaleString()}</div>
+              <div class="metric-label" style="font-size:0.55rem;">Received</div>
+            </div>
+            <div class="metric-card" style="padding: 0.55rem; ${balanceGlowBorder}">
+              <div class="metric-value" style="font-size:1.05rem; ${balanceColorStyle}">₹${balance.toLocaleString()}</div>
+              <div class="metric-label" style="font-size:0.55rem;">Outstanding</div>
+            </div>
+          </div>
+
+          <!-- Log Client Payment Sub-form -->
+          <div style="border:1px solid var(--border-color); background:rgba(0,0,0,0.1); padding:0.85rem; border-radius:var(--radius-md);">
+            <h4 style="font-size:0.8rem; font-weight:600; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.6rem; display:flex; align-items:center; gap:0.3rem;">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2" style="color:var(--color-present)"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Log Payment Received
+            </h4>
+            <form id="logClientPaymentSubForm" onsubmit="event.preventDefault();" style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:flex-end;">
+              <div style="flex:1; min-width:90px;">
+                <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="clientPayAmountInput">Amount Received (₹)</label>
+                <input type="number" class="input-text" id="clientPayAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="1" placeholder="e.g. 50000">
+              </div>
+              <div style="flex:1.2; min-width:120px;">
+                <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="clientPayDateInput">Date Received</label>
+                <input type="date" class="input-text" id="clientPayDateInput" style="padding:0.38rem 0.6rem; font-size:0.85rem;" required value="${getLocalDateString(new Date())}">
+              </div>
+              <button type="submit" class="btn btn-primary" style="padding:0.45rem 0.85rem; font-size:0.8rem; height:34px;">Log Pay</button>
+            </form>
+          </div>
+
+          <!-- Client Payment Logs & Worker Deployments -->
+          <div style="display:grid; grid-template-columns:1fr; gap:0.85rem;">
+            <!-- Left: Payment logs -->
+            <div>
+              <div class="worker-list-title" style="font-size:0.7rem; margin-bottom:0.4rem;">Payment Logs</div>
+              <div class="timeline-log" style="max-height:140px; overflow-y:auto; gap:0.35rem; padding-right:1px;">
+                ${logsHtml}
+              </div>
+            </div>
+            
+            <!-- Right: Deployments timeline -->
+            <div>
+              <div class="worker-list-title" style="font-size:0.7rem; margin-bottom:0.4rem;">Deployments History (Active Days: ${stats.activeDays})</div>
+              <div class="timeline-log" style="max-height:140px; overflow-y:auto; gap:0.35rem; padding-right:1px;">
+                ${deploymentsHtml}
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom action row: Edit site name / delete site -->
+          <div style="display:flex; justify-content:flex-end; gap:0.4rem; border-top:1px solid var(--border-color); padding-top:0.75rem; margin-top:0.4rem;">
+            ${actionButtonsHtml}
+          </div>
+
+        </div>
+      `;
+
+      // Bind Events
+      if (state.isEditingContract) {
+        document.getElementById("saveContractAmountBtn").addEventListener("click", () => {
+          const val = parseFloat(document.getElementById("editContractAmountInput").value) || 0;
+          updateLocationContractAmount(selectedLoc.id, val);
+        });
+        document.getElementById("cancelContractAmountBtn").addEventListener("click", () => {
+          state.isEditingContract = false;
+          renderLocationsView();
+        });
+      } else {
+        document.getElementById("toggleEditContractLink").addEventListener("click", () => {
+          state.isEditingContract = true;
+          renderLocationsView();
+        });
+      }
+
+      document.getElementById("logClientPaymentSubForm").addEventListener("submit", () => {
+        const amt = parseFloat(document.getElementById("clientPayAmountInput").value) || 0;
+        const date = document.getElementById("clientPayDateInput").value;
+        if (amt > 0 && date) {
+          addClientPayment(selectedLoc.id, amt, date);
+        }
+      });
+
+      detailsContainer.querySelectorAll(".delete-client-payment-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const paymentId = btn.getAttribute("data-payment-id");
+          if (confirm("Delete this client payment record?")) {
+            deleteClientPayment(selectedLoc.id, paymentId);
+          }
+        });
+      });
+
+      detailsContainer.querySelectorAll(".edit-loc-btn").forEach(btn => {
         btn.addEventListener("click", () => openEditLocationModal(btn.getAttribute("data-loc-id"), btn.getAttribute("data-loc-name")));
       });
-      container.querySelectorAll(".restore-loc-btn").forEach(btn => {
+
+      detailsContainer.querySelectorAll(".restore-loc-btn").forEach(btn => {
         btn.addEventListener("click", () => restoreLocation(btn.getAttribute("data-loc-id")));
       });
-      container.querySelectorAll(".delete-loc-btn").forEach(btn => {
+
+      detailsContainer.querySelectorAll(".delete-loc-btn").forEach(btn => {
         btn.addEventListener("click", () => openDeleteLocationConfirmModal(btn.getAttribute("data-loc-id")));
+      });
+
+      document.getElementById("exportClientPaymentsCSVBtn").addEventListener("click", () => {
+        exportLocationClientPaymentsCSV(selectedLoc.id);
       });
     }
 
     // D: RENDER HISTORY SCREEN
     function renderHistoryView() {
-      // 1. By Date Sub-view
       document.getElementById("histDateLabelText").innerText = formatFriendlyDate(state.historyDate);
       document.getElementById("histDatePicker").value = state.historyDate;
 
@@ -2817,7 +3117,7 @@
             </div>
             <div style="min-width: 0;">
               <div style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${w.name}</div>
-              <div style="font-size:0.7rem; color:var(--text-muted);">${badgeHtml || (balance === 0 ? '<span style="color:var(--color-present)">Balanced</span>' : `Bal: $${balance.toLocaleString()}`)}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted);">${badgeHtml || (balance === 0 ? '<span style="color:var(--color-present)">Balanced</span>' : `Bal: ₹${balance.toLocaleString()}`)}</div>
             </div>
           </div>
         `;
@@ -2851,7 +3151,7 @@
       } else {
         agreedSalaryHtml = `
           <div style="display:flex; align-items:center; gap:0.4rem; margin-top:2px;">
-            <strong style="font-size:1.2rem; color:var(--text-main);">$${totalSalary.toLocaleString()}</strong>
+            <strong style="font-size:1.2rem; color:var(--text-main);">₹${totalSalary.toLocaleString()}</strong>
             <button class="text-link" id="toggleEditSalaryLink" style="font-size:0.75rem;">Edit</button>
           </div>
         `;
@@ -2880,7 +3180,7 @@
             <div class="timeline-item" style="padding:0.5rem 0.65rem;">
               <span class="timeline-date">${formatFriendlyDate(p.date)}</span>
               <div style="display:flex; align-items:center; gap:0.6rem;">
-                <strong style="color:var(--color-present)">+$${p.amount.toLocaleString()}</strong>
+                <strong style="color:var(--color-present)">+₹${p.amount.toLocaleString()}</strong>
                 <button class="btn btn-icon-only delete-payment-btn" data-payment-id="${p.id}" style="padding:0.25rem; background:none; border:none; color:var(--text-dark);" title="Delete payment">
                   <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2.5" style="color:var(--color-absent)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
@@ -2919,15 +3219,15 @@
           <!-- Ledgers Cards -->
           <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.5rem;">
             <div class="metric-card" style="padding: 0.55rem; background:rgba(0,0,0,0.15);">
-              <div class="metric-value" style="font-size:1.05rem;">$${totalSalary.toLocaleString()}</div>
+              <div class="metric-value" style="font-size:1.05rem;">₹${totalSalary.toLocaleString()}</div>
               <div class="metric-label" style="font-size:0.55rem;">Total Due</div>
             </div>
             <div class="metric-card" style="padding: 0.55rem; background:rgba(0,0,0,0.15);">
-              <div class="metric-value" style="font-size:1.05rem; color:var(--color-present);">$${totalPaid.toLocaleString()}</div>
+              <div class="metric-value" style="font-size:1.05rem; color:var(--color-present);">₹${totalPaid.toLocaleString()}</div>
               <div class="metric-label" style="font-size:0.55rem;">Total Paid</div>
             </div>
             <div class="metric-card" style="padding: 0.55rem; ${balanceGlowBorder}">
-              <div class="metric-value" style="font-size:1.05rem; ${balanceColorStyle}">$${balance.toLocaleString()}</div>
+              <div class="metric-value" style="font-size:1.05rem; ${balanceColorStyle}">₹${balance.toLocaleString()}</div>
               <div class="metric-label" style="font-size:0.55rem;">Balance Due</div>
             </div>
           </div>
@@ -2940,7 +3240,7 @@
             </h4>
             <form id="logPaymentSubForm" onsubmit="event.preventDefault();" style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:flex-end;">
               <div style="flex:1; min-width:90px;">
-                <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="payAmountInput">Paid Amount ($)</label>
+                <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="payAmountInput">Paid Amount (₹)</label>
                 <input type="number" class="input-text" id="payAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="1" placeholder="e.g. 500">
               </div>
               <div style="flex:1.2; min-width:120px;">
@@ -3122,6 +3422,7 @@
       if (targetId === "viewHistory") renderHistoryView();
       else if (targetId === "viewSummary") renderSummaryView();
       else if (targetId === "viewSalaryModule") renderSalaryView();
+      else if (targetId === "viewLocations") renderLocationsView();
       else if (targetId === "viewAttendance") {
         renderDefaultLocationSelect();
         renderAttendanceView();
@@ -3235,6 +3536,72 @@
       saveState();
       render();
       showToast(`Archived site "${loc.name}"`);
+    }
+
+    // Locations: Update agreed contract value [NEW]
+    function updateLocationContractAmount(locId, amount) {
+      const loc = state.locations.find(l => l.id === locId);
+      if (!loc) return;
+
+      loc.contractAmount = Math.max(0, amount);
+      state.isEditingContract = false;
+      saveState();
+      renderLocationsView();
+      showToast("Updated contract budget");
+    }
+
+    // Locations: Log client payment given [NEW]
+    function addClientPayment(locId, amount, date) {
+      const loc = state.locations.find(l => l.id === locId);
+      if (!loc) return;
+
+      if (!loc.clientPayments) loc.clientPayments = [];
+
+      loc.clientPayments.push({
+        id: "cp_" + Date.now(),
+        amount: Math.max(1, amount),
+        date: date
+      });
+
+      saveState();
+      renderLocationsView();
+      showToast("Client payment logged");
+    }
+
+    // Locations: Delete client payment record [NEW]
+    function deleteClientPayment(locId, paymentId) {
+      const loc = state.locations.find(l => l.id === locId);
+      if (!loc || !loc.clientPayments) return;
+
+      loc.clientPayments = loc.clientPayments.filter(p => p.id !== paymentId);
+
+      saveState();
+      renderLocationsView();
+      showToast("Payment record deleted");
+    }
+
+    // Locations: Export client payments history to CSV [NEW]
+    function exportLocationClientPaymentsCSV(locId) {
+      const loc = state.locations.find(l => l.id === locId);
+      if (!loc || !loc.clientPayments || loc.clientPayments.length === 0) {
+        alert("No payment logs recorded for this site.");
+        return;
+      }
+
+      let csv = "data:text/csv;charset=utf-8,Date,Amount Received (₹)\n";
+      // Sort chronologically ascending for the record slip
+      const sorted = [...loc.clientPayments].sort((a,b) => a.date.localeCompare(b.date));
+      sorted.forEach(p => {
+        csv += `${p.date},${p.amount}\n`;
+      });
+
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", encodeURI(csv));
+      downloadAnchor.setAttribute("download", `client_billing_slip_${loc.name.replace(/\s+/g, '_')}_${getLocalDateString(new Date())}.csv`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Billing slip CSV exported");
     }
 
     // Locations: Delete Location and associations
@@ -3684,7 +4051,7 @@
         return;
       }
 
-      let csv = "data:text/csv;charset=utf-8,Date,Amount Given ($)\n";
+      let csv = "data:text/csv;charset=utf-8,Date,Amount Given (₹)\n";
       // Sort chronologically ascending for the record slip
       const sorted = [...worker.payments].sort((a,b) => a.date.localeCompare(b.date));
       sorted.forEach(p => {
