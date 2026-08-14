@@ -1914,7 +1914,8 @@
     let state = {
       workers: [],
       locations: [],
-      attendance: {}, // schema: { "YYYY-MM-DD": { "workerId": { status: "present"|"absent", locationId: "id"|null } } }
+      attendance: {},
+      overallExpenses: [], // General/Overall overhead expenses not tied to a single job site
       currentDate: "",
       currentTab: "viewAttendance",
       historyWorkerId: "",
@@ -1941,6 +1942,7 @@
           state.workers = parsed.workers || [];
           state.locations = parsed.locations || [];
           state.attendance = parsed.attendance || {};
+          state.overallExpenses = parsed.overallExpenses || [];
           
           migrateLegacyData();
         } catch (e) {
@@ -1995,13 +1997,15 @@
       state.workers = [...DEFAULT_CREW];
       state.locations = [...DEFAULT_LOCATIONS];
       state.attendance = {};
+      state.overallExpenses = [];
     }
 
     function saveState() {
       const payload = {
         workers: state.workers,
         locations: state.locations,
-        attendance: state.attendance
+        attendance: state.attendance,
+        overallExpenses: state.overallExpenses || []
       };
       localStorage.setItem("crew_attendance_data", JSON.stringify(payload));
       
@@ -2012,6 +2016,11 @@
     // Database structure migration (Converts legacy status strings to objects)
     function migrateLegacyData() {
       let isMigrated = false;
+
+      if (!state.overallExpenses) {
+        state.overallExpenses = [];
+        isMigrated = true;
+      }
 
       // 1. Ensure locations array exists
       if (!state.locations || state.locations.length === 0) {
@@ -2716,6 +2725,13 @@
               </button>
             </div>
             <form id="logJobExpenseSubForm" onsubmit="event.preventDefault();" style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:flex-end;">
+              <div style="flex:1.2; min-width:130px;">
+                <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="expenseScopeInput">Target Scope</label>
+                <select class="dropdown-select" id="expenseScopeInput" style="padding:0.4rem 0.5rem; font-size:0.8rem; height:34px;">
+                  <option value="${selectedLoc.id}">This Site (${selectedLoc.name})</option>
+                  <option value="general">General / Overall Overhead</option>
+                </select>
+              </div>
               <div style="flex:1; min-width:100px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="expenseCategoryInput">Category</label>
                 <select class="dropdown-select" id="expenseCategoryInput" style="padding:0.4rem 0.5rem; font-size:0.8rem; height:34px;">
@@ -2823,12 +2839,13 @@
       });
 
       document.getElementById("logJobExpenseSubForm").addEventListener("submit", () => {
+        const targetScope = document.getElementById("expenseScopeInput").value;
         const cat = document.getElementById("expenseCategoryInput").value;
         const amt = parseFloat(document.getElementById("expenseAmountInput").value) || 0;
         const date = document.getElementById("expenseDateInput").value;
         const note = document.getElementById("expenseNoteInput").value;
         if (amt > 0 && date) {
-          addLocationExpense(selectedLoc.id, amt, cat, date, note);
+          addExpense(targetScope, amt, cat, date, note);
         }
       });
 
@@ -2836,7 +2853,7 @@
         btn.addEventListener("click", () => {
           const expId = btn.getAttribute("data-expense-id");
           if (confirm("Delete this expense record?")) {
-            deleteLocationExpense(selectedLoc.id, expId);
+            deleteExpense(selectedLoc.id, expId);
           }
         });
       });
@@ -3944,41 +3961,50 @@
       };
     }
 
-    // Locations: Log extra site expense [NEW]
-    function addLocationExpense(locId, amount, category, date, note) {
-      const loc = state.locations.find(l => l.id === locId);
-      if (!loc) return;
-
-      if (!loc.expenses) loc.expenses = [];
-
-      loc.expenses.push({
+    // Log extra expense (General overhead or site-specific) [NEW]
+    function addExpense(targetScope, amount, category, date, note) {
+      const expItem = {
         id: "exp_" + Date.now(),
         amount: Math.max(1, amount),
         category: category || "Other",
         date: date || getLocalDateString(new Date()),
         note: (note || "").trim()
-      });
+      };
+
+      if (targetScope === "general" || targetScope === "overall" || !targetScope) {
+        if (!state.overallExpenses) state.overallExpenses = [];
+        state.overallExpenses.push(expItem);
+        showToast("General overhead expense logged");
+      } else {
+        const loc = state.locations.find(l => l.id === targetScope);
+        if (!loc) return;
+        if (!loc.expenses) loc.expenses = [];
+        loc.expenses.push(expItem);
+        showToast(`Job expense logged for "${loc.name}"`);
+      }
 
       saveState();
-      renderLocationsView();
-      if (state.currentTab === "viewSummary") renderSummaryView();
-      showToast("Job expense logged");
+      render();
     }
 
-    // Locations: Delete job expense [NEW]
-    function deleteLocationExpense(locId, expId) {
-      const loc = state.locations.find(l => l.id === locId);
-      if (!loc || !loc.expenses) return;
-
-      loc.expenses = loc.expenses.filter(e => e.id !== expId);
+    // Delete extra expense (General overhead or site-specific) [NEW]
+    function deleteExpense(targetScope, expId) {
+      if (targetScope === "general" || targetScope === "overall" || !targetScope) {
+        if (!state.overallExpenses) return;
+        state.overallExpenses = state.overallExpenses.filter(e => e.id !== expId);
+        showToast("General expense record deleted");
+      } else {
+        const loc = state.locations.find(l => l.id === targetScope);
+        if (!loc || !loc.expenses) return;
+        loc.expenses = loc.expenses.filter(e => e.id !== expId);
+        showToast("Site expense record deleted");
+      }
 
       saveState();
-      renderLocationsView();
-      if (state.currentTab === "viewSummary") renderSummaryView();
-      showToast("Expense record deleted");
+      render();
     }
 
-    // Locations: Export job expenses CSV [NEW]
+    // Locations: Export site-specific expenses CSV [NEW]
     function exportLocationExpensesCSV(locId) {
       const loc = state.locations.find(l => l.id === locId);
       if (!loc || !loc.expenses || loc.expenses.length === 0) {
@@ -4001,15 +4027,58 @@
       showToast("Job expenses CSV exported");
     }
 
-    // Master Export: Job Profitability Master CSV [NEW]
+    // Export General Overhead Expenses CSV [NEW]
+    function exportOverallExpensesCSV() {
+      if (!state.overallExpenses || state.overallExpenses.length === 0) {
+        alert("No general overhead expenses recorded.");
+        return;
+      }
+
+      let csv = "data:text/csv;charset=utf-8,Date,Category,Amount (₹),Note\n";
+      const sorted = [...state.overallExpenses].sort((a,b) => a.date.localeCompare(b.date));
+      sorted.forEach(e => {
+        csv += `${e.date},"${(e.category||'Other').replace(/"/g, '""')}",${e.amount},"${(e.note||'').replace(/"/g, '""')}"\n`;
+      });
+
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", encodeURI(csv));
+      downloadAnchor.setAttribute("download", `general_overhead_expenses_${getLocalDateString(new Date())}.csv`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("General overhead expenses CSV exported");
+    }
+
+    // Master Export: Job Financial & Overhead Profitability Master CSV [NEW]
     function exportJobFinancialMasterCSV() {
-      let csv = "data:text/csv;charset=utf-8,Job Site,Active Days,Worker-Days,Contract Value (₹),Cash Received (₹),Labor Cost (₹),Other Expenses (₹),Total Expense (₹),Net Profit (₹),Margin (%)\n";
+      let csv = "data:text/csv;charset=utf-8,Scope / Job Site,Active Days,Worker-Days,Contract Value (₹),Cash Received (₹),Labor Cost (₹),Other Expenses (₹),Total Expense (₹),Net Profit (₹),Margin (%)\n";
+      
+      let totContract = 0, totCash = 0, totLabor = 0, totOtherExp = 0, totExp = 0, totProfit = 0;
+
       state.locations.forEach(loc => {
         const fin = getLocationFinancials(loc.id);
         if (fin) {
+          totContract += fin.contract;
+          totCash += fin.cashReceived;
+          totLabor += fin.laborCost;
+          totOtherExp += fin.otherExpenses;
+          totExp += fin.totalExpenses;
+          totProfit += fin.netProfit;
           csv += `"${loc.name.replace(/"/g, '""')}",${fin.activeDays},${fin.totalWorkerDays},${fin.contract},${fin.cashReceived},${fin.laborCost},${fin.otherExpenses},${fin.totalExpenses},${fin.netProfit},${fin.marginPct}%\n`;
         }
       });
+
+      // Overall Overhead expenses
+      const genOtherExp = (state.overallExpenses || []).reduce((sum, e) => sum + e.amount, 0);
+      if (genOtherExp > 0 || (state.overallExpenses && state.overallExpenses.length > 0)) {
+        totOtherExp += genOtherExp;
+        totExp += genOtherExp;
+        totProfit -= genOtherExp;
+        csv += `"General / Overall Overhead",-,-,0,0,0,${genOtherExp},${genOtherExp},-${genOtherExp},0%\n`;
+      }
+
+      const overallMargin = totContract > 0 ? Math.round((totProfit / totContract) * 100) : 0;
+      csv += `"TOTAL PORTFOLIO",-,-,${totContract},${totCash},${totLabor},${totOtherExp},${totExp},${totProfit},${overallMargin}%\n`;
 
       const downloadAnchor = document.createElement("a");
       downloadAnchor.setAttribute("href", encodeURI(csv));
