@@ -1,4 +1,4 @@
-const CACHE_NAME = "crew-attendance-v5";
+const CACHE_NAME = "crew-attendance-v6";
 const ASSETS = [
   "./",
   "./index.html",
@@ -24,9 +24,7 @@ self.addEventListener("activate", event => {
     caches.keys().then(keys => {
       return Promise.all(
         keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+          return caches.delete(key);
         })
       );
     }).then(() => self.clients.claim())
