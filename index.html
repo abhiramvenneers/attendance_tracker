@@ -1745,7 +1745,7 @@
         </div>
         <div class="form-group">
           <label for="newWorkerDailyRate">Daily Salary Rate (₹ / Day)</label>
-          <input type="number" class="input-text" id="newWorkerDailyRate" placeholder="e.g. 500" value="500" required min="0" step="10">
+          <input type="number" class="input-text" id="newWorkerDailyRate" placeholder="e.g. 875 or 916.66" value="500" required min="0" step="any">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="cancelAddWorkerBtn">Cancel</button>
@@ -1774,7 +1774,7 @@
         </div>
         <div class="form-group">
           <label for="editWorkerDailyRate">Daily Salary Rate (₹ / Day)</label>
-          <input type="number" class="input-text" id="editWorkerDailyRate" required min="0" step="10" placeholder="e.g. 500">
+          <input type="number" class="input-text" id="editWorkerDailyRate" required min="0" step="any" placeholder="e.g. 875 or 916.66">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="cancelEditWorkerBtn">Cancel</button>
@@ -2716,7 +2716,7 @@
             <form id="logClientPaymentSubForm" onsubmit="event.preventDefault();" style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:flex-end;">
               <div style="flex:1; min-width:90px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="clientPayAmountInput">Amount Received (₹)</label>
-                <input type="number" class="input-text" id="clientPayAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="1" placeholder="e.g. 50000">
+                <input type="number" class="input-text" id="clientPayAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="0" step="any" placeholder="e.g. 50000">
               </div>
               <div style="flex:1.2; min-width:120px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="clientPayDateInput">Date Received</label>
@@ -2759,7 +2759,7 @@
               </div>
               <div style="flex:1; min-width:90px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="expenseAmountInput">Amount (₹)</label>
-                <input type="number" class="input-text" id="expenseAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="1" placeholder="e.g. 2500">
+                <input type="number" class="input-text" id="expenseAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="0" step="any" placeholder="e.g. 875 or 916.66">
               </div>
               <div style="flex:1; min-width:110px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="expenseDateInput">Date</label>
@@ -3546,13 +3546,13 @@
           <!-- Log a Payment Sub-form -->
           <div style="border:1px solid var(--border-color); background:rgba(0,0,0,0.1); padding:0.85rem; border-radius:var(--radius-md);">
             <h4 style="font-size:0.8rem; font-weight:600; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.6rem; display:flex; align-items:center; gap:0.3rem;">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2" style="color:var(--color-present)"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2" style="color:var(--color-present)"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 16 14"></polyline></svg>
               Log Payment Given
             </h4>
             <form id="logPaymentSubForm" onsubmit="event.preventDefault();" style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:flex-end;">
               <div style="flex:1; min-width:90px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="payAmountInput">Paid Amount (₹)</label>
-                <input type="number" class="input-text" id="payAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="1" placeholder="e.g. 500">
+                <input type="number" class="input-text" id="payAmountInput" style="padding:0.4rem 0.6rem; font-size:0.85rem;" required min="0" step="any" placeholder="e.g. 500 or 916.66">
               </div>
               <div style="flex:1.2; min-width:120px;">
                 <label style="display:block; font-size:0.65rem; color:var(--text-muted); margin-bottom:1px;" for="payDateInput">Date Paid</label>
