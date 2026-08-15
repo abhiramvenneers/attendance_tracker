@@ -1,4 +1,4 @@
-const CACHE_NAME = "crew-attendance-v8";
+const CACHE_NAME = "crew-attendance-v9";
 const ASSETS = [
   "./",
   "./index.html",
@@ -11,48 +11,61 @@ const ASSETS = [
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(ASSETS);
-      })
+      .then(cache => cache.addAll(ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate Event
+// Activate Event: Wipe out all old caches immediately
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
-        keys.map(key => {
-          return caches.delete(key);
-        })
+        keys.map(key => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
 });
 
-// Fetch Event (Stale-While-Revalidate)
+// Fetch Event: Network-First for HTML documents to guarantee instant app updates
 self.addEventListener("fetch", event => {
-  // Only handle local GET requests
   if (event.request.method !== "GET" || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
+  const isHtmlRequest = event.request.mode === "navigate" || 
+                        (event.request.headers.get("accept") && event.request.headers.get("accept").includes("text/html")) ||
+                        event.request.url.endsWith("index.html") || 
+                        event.request.url.endsWith("/");
+
+  if (isHtmlRequest) {
+    // Network-First for main HTML page
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for other static assets
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       const fetchPromise = fetch(event.request)
         .then(networkResponse => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseClone);
-            });
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
           }
           return networkResponse;
         })
-        .catch(() => {
-          // Ignore network errors when offline
-        });
+        .catch(() => {});
 
       return cachedResponse || fetchPromise;
     })
