@@ -21,6 +21,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
+  <!-- html2pdf.js CDN for client-side PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <!-- Google Fonts: Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1556,20 +1559,30 @@
 
       <div class="quick-ops-row">
         <p>Invoicing Breakdown (Sun – Sat)</p>
-        <button class="btn btn-primary" id="exportWeeklySummaryCSVBtn"
-          style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-          </svg>
-          Export Weekly CSV
-        </button>
+        <div style="display: flex; gap: 0.4rem;">
+          <button class="btn btn-secondary" id="exportWeeklySummaryCSVBtn"
+            style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            Export CSV
+          </button>
+          <button class="btn btn-primary" id="exportWeeklyPDFBtn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            Export Weekly PDF
+          </button>
+        </div>
       </div>
 
       <div class="weekly-billing-grid" id="weeklyBillingSummaryContainer"></div>
-
       <!-- JOB PROFITABILITY & EXPENSE MASTER ANALYSIS -->
       <div style="margin-top: 2rem; border-top: 1px dashed var(--border-color); padding-top: 1.5rem;">
         <div class="crew-header" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
@@ -4498,6 +4511,7 @@
             state.workers = parsed.workers;
             state.locations = parsed.locations || [];
             state.attendance = parsed.attendance;
+            state.overallExpenses = parsed.overallExpenses || [];
 
             migrateLegacyData();
             saveState();
@@ -4604,6 +4618,414 @@
       downloadAnchor.click();
       downloadAnchor.remove();
       showToast("Weekly summary CSV exported");
+    }
+
+    // Exports a comprehensive Weekly PDF Report (Executive P&L Summary with All Expenses Flow, Attendance, Deployments, Client Cash Inflow, Site & Non-Site Expenses)
+    function exportWeeklySummaryPDF() {
+      if (typeof html2pdf === "undefined") {
+        alert("PDF generator library is not loaded. Please ensure you have an active internet connection on first load.");
+        return;
+      }
+
+      const weekRangeLabel = document.getElementById("weekRangeLabelText").innerText;
+      const weekParts = state.summaryStartOfWeek.split('-');
+      const sunday = new Date(weekParts[0], weekParts[1] - 1, weekParts[2]);
+
+      const weekDates = [];
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      for (let i = 0; i < 7; i++) {
+        const temp = new Date(sunday);
+        temp.setDate(sunday.getDate() + i);
+        weekDates.push({
+          dateStr: getLocalDateString(temp),
+          dayLabel: dayNames[i],
+          dateShort: `${temp.getMonth() + 1}/${temp.getDate()}`
+        });
+      }
+
+      // 1. Compile Attendance Matrix & Wage Breakdown
+      let attendanceRowsHtml = "";
+      const activeWorkers = state.workers.filter(w => w.status === "active");
+      activeWorkers.sort((a, b) => a.name.localeCompare(b.name));
+
+      let totalWeeklyLaborPayout = 0;
+      let totalWeeklyLaborPaid = 0;
+
+      activeWorkers.forEach(worker => {
+        let daysWorkedThisWeek = 0;
+        let daysColsHtml = "";
+
+        weekDates.forEach(day => {
+          const record = state.attendance[day.dateStr];
+          const entry = record ? record[worker.id] : null;
+          if (entry && entry.status === "present") {
+            daysWorkedThisWeek++;
+            const loc = entry.locationId ? state.locations.find(l => l.id === entry.locationId) : null;
+            const locShort = loc ? loc.name.substring(0, 7) : "P";
+            daysColsHtml += `<td style="text-align:center; background:#ecfdf5; color:#065f46; font-size:9px; font-weight:600; padding:4px 2px; border:1px solid #cbd5e1;">P<br><span style="font-size:7.5px; color:#047857;">${locShort}</span></td>`;
+          } else if (entry && entry.status === "absent") {
+            daysColsHtml += `<td style="text-align:center; background:#fff1f2; color:#be123c; font-weight:700; font-size:10px; padding:4px; border:1px solid #cbd5e1;">A</td>`;
+          } else {
+            daysColsHtml += `<td style="text-align:center; color:#94a3b8; font-size:10px; padding:4px; border:1px solid #cbd5e1;">-</td>`;
+          }
+        });
+
+        const rate = worker.dailyRate || 500;
+        const weeklyEarned = daysWorkedThisWeek * rate;
+        totalWeeklyLaborPayout += weeklyEarned;
+
+        const weekPaid = (worker.payments || []).filter(p => {
+          return weekDates.some(d => d.dateStr === p.date);
+        }).reduce((sum, p) => sum + p.amount, 0);
+        totalWeeklyLaborPaid += weekPaid;
+
+        attendanceRowsHtml += `
+          <tr style="border-bottom: 1px solid #cbd5e1;">
+            <td style="padding: 5px 6px; font-weight: 600; color: #1e293b; border:1px solid #cbd5e1;">${worker.name}</td>
+            ${daysColsHtml}
+            <td style="text-align: center; font-weight: 700; color: #0f172a; border:1px solid #cbd5e1;">${daysWorkedThisWeek}d</td>
+            <td style="text-align: right; padding-right: 4px; border:1px solid #cbd5e1;">₹${rate.toLocaleString()}</td>
+            <td style="text-align: right; font-weight: 700; color: #4338ca; padding-right: 4px; border:1px solid #cbd5e1;">₹${weeklyEarned.toLocaleString()}</td>
+            <td style="text-align: right; font-weight: 600; color: #059669; padding-right: 4px; border:1px solid #cbd5e1;">₹${weekPaid.toLocaleString()}</td>
+          </tr>
+        `;
+      });
+
+      // 2. Compile Site Deployments
+      const locSummary = {};
+      weekDates.forEach(day => {
+        const record = state.attendance[day.dateStr];
+        if (record) {
+          Object.keys(record).forEach(wId => {
+            const entry = record[wId];
+            if (entry && entry.status === "present" && entry.locationId) {
+              const locId = entry.locationId;
+              if (!locSummary[locId]) {
+                locSummary[locId] = { activeDaysSet: new Set(), totalWorkerDays: 0, workers: {} };
+              }
+              locSummary[locId].activeDaysSet.add(day.dateStr);
+              locSummary[locId].totalWorkerDays++;
+              locSummary[locId].workers[wId] = (locSummary[locId].workers[wId] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      let siteRowsHtml = "";
+      const activeLocKeys = Object.keys(locSummary);
+      if (activeLocKeys.length === 0) {
+        siteRowsHtml = `<tr><td colspan="4" style="text-align:center; padding:8px; color:#64748b; border:1px solid #cbd5e1;">No site deployments recorded for this week.</td></tr>`;
+      } else {
+        activeLocKeys.forEach(locId => {
+          const loc = state.locations.find(l => l.id === locId);
+          const locName = loc ? loc.name : "Archived Site";
+          const s = locSummary[locId];
+
+          const workerListStr = Object.keys(s.workers).map(wId => {
+            const w = state.workers.find(worker => worker.id === wId);
+            return `${w ? w.name : 'Worker'} (${s.workers[wId]}d)`;
+          }).join(", ");
+
+          siteRowsHtml += `
+            <tr style="border-bottom: 1px solid #cbd5e1;">
+              <td style="padding: 5px 6px; font-weight: 600; color: #1e293b; border:1px solid #cbd5e1;">${locName}</td>
+              <td style="text-align: center; font-weight: 600; border:1px solid #cbd5e1;">${s.activeDaysSet.size} days</td>
+              <td style="text-align: center; font-weight: 700; color: #4338ca; border:1px solid #cbd5e1;">${s.totalWorkerDays}</td>
+              <td style="padding: 5px 6px; font-size: 10px; color: #475569; border:1px solid #cbd5e1;">${workerListStr}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 3. Compile Money Received From Client Sites (This Week)
+      const weeklyClientPayments = [];
+      state.locations.forEach(loc => {
+        (loc.clientPayments || []).forEach(p => {
+          if (weekDates.some(d => d.dateStr === p.date)) {
+            weeklyClientPayments.push({
+              siteName: loc.name,
+              date: p.date,
+              amount: p.amount
+            });
+          }
+        });
+      });
+      weeklyClientPayments.sort((a, b) => a.date.localeCompare(b.date));
+
+      const totalClientReceivedThisWeek = weeklyClientPayments.reduce((sum, p) => sum + p.amount, 0);
+
+      let clientPaymentsRowsHtml = "";
+      if (weeklyClientPayments.length === 0) {
+        clientPaymentsRowsHtml = `<tr><td colspan="3" style="text-align:center; padding:6px; color:#64748b; border:1px solid #cbd5e1;">No client payments received during this week.</td></tr>`;
+      } else {
+        weeklyClientPayments.forEach(p => {
+          clientPaymentsRowsHtml += `
+            <tr style="border-bottom: 1px solid #cbd5e1;">
+              <td style="padding: 4px 6px; border:1px solid #cbd5e1;">${formatFriendlyDate(p.date)}</td>
+              <td style="padding: 4px 6px; font-weight: 600; color: #1e293b; border:1px solid #cbd5e1;">${p.siteName}</td>
+              <td style="padding: 4px 6px; text-align: right; font-weight: 700; color: #059669; border:1px solid #cbd5e1;">+₹${p.amount.toLocaleString()}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 4. Compile Site Extra Expenses (This Week)
+      const weeklySiteExpenses = [];
+      state.locations.forEach(loc => {
+        (loc.expenses || []).forEach(exp => {
+          if (weekDates.some(d => d.dateStr === exp.date)) {
+            weeklySiteExpenses.push({
+              siteName: loc.name,
+              date: exp.date,
+              category: exp.category,
+              note: exp.note,
+              amount: exp.amount
+            });
+          }
+        });
+      });
+      weeklySiteExpenses.sort((a, b) => a.date.localeCompare(b.date));
+
+      const totalSiteExpenses = weeklySiteExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+      let siteExpenseRowsHtml = "";
+      if (weeklySiteExpenses.length === 0) {
+        siteExpenseRowsHtml = `<tr><td colspan="5" style="text-align:center; padding:6px; color:#64748b; border:1px solid #cbd5e1;">No site extra expenses logged for this week.</td></tr>`;
+      } else {
+        weeklySiteExpenses.forEach(e => {
+          siteExpenseRowsHtml += `
+            <tr style="border-bottom: 1px solid #cbd5e1;">
+              <td style="padding: 4px 6px; border:1px solid #cbd5e1;">${formatFriendlyDate(e.date)}</td>
+              <td style="padding: 4px 6px; font-weight: 600; color: #4338ca; border:1px solid #cbd5e1;">${e.siteName}</td>
+              <td style="padding: 4px 6px; font-weight: 600; border:1px solid #cbd5e1;">${e.category}</td>
+              <td style="padding: 4px 6px; color: #475569; border:1px solid #cbd5e1;">${e.note || '-'}</td>
+              <td style="padding: 4px 6px; text-align: right; font-weight: 700; color: #e11d48; border:1px solid #cbd5e1;">-₹${e.amount.toLocaleString()}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 5. Compile Non-Site / General Overhead Expenses (This Week)
+      const weekNonSiteExpenses = (state.overallExpenses || []).filter(e => {
+        return weekDates.some(d => d.dateStr === e.date);
+      });
+      const totalNonSiteExpenses = weekNonSiteExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+      let nonSiteExpenseRowsHtml = "";
+      if (weekNonSiteExpenses.length === 0) {
+        nonSiteExpenseRowsHtml = `<tr><td colspan="4" style="text-align:center; padding:6px; color:#64748b; border:1px solid #cbd5e1;">No general non-site overhead logged for this week.</td></tr>`;
+      } else {
+        weekNonSiteExpenses.forEach(e => {
+          nonSiteExpenseRowsHtml += `
+            <tr style="border-bottom: 1px solid #cbd5e1;">
+              <td style="padding: 4px 6px; border:1px solid #cbd5e1;">${formatFriendlyDate(e.date)}</td>
+              <td style="padding: 4px 6px; font-weight: 600; border:1px solid #cbd5e1;">${e.category}</td>
+              <td style="padding: 4px 6px; color: #475569; border:1px solid #cbd5e1;">${e.note || '-'}</td>
+              <td style="padding: 4px 6px; text-align: right; font-weight: 700; color: #e11d48; border:1px solid #cbd5e1;">-₹${e.amount.toLocaleString()}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 6. Total Outflow & Profit / Loss Flow Calculations
+      const totalWeeklyExpenses = totalWeeklyLaborPayout + totalSiteExpenses + totalNonSiteExpenses;
+      const weeklyNetProfit = totalClientReceivedThisWeek - totalWeeklyExpenses;
+      const isProfit = weeklyNetProfit >= 0;
+
+      // Assemble Template Element
+      const reportContainer = document.createElement("div");
+      reportContainer.id = "printableReport";
+      reportContainer.style.padding = "16px 20px";
+      reportContainer.style.fontFamily = "Helvetica, Arial, sans-serif";
+      reportContainer.style.color = "#0f172a";
+      reportContainer.style.background = "#ffffff";
+      reportContainer.style.fontSize = "9.5px";
+      reportContainer.style.lineHeight = "1.35";
+
+      reportContainer.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 10px;">
+          <div>
+            <h1 style="font-size: 17px; color: #1e1b4b; margin: 0; font-weight: 800;">Crew Attendance & Weekly Financial Report</h1>
+            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 10px;">Week Range: <strong style="color: #4f46e5;">${weekRangeLabel}</strong> (Sunday – Saturday)</p>
+          </div>
+          <div style="text-align: right;">
+            <span style="display:inline-block; background: #e0e7ff; color: #3730a3; padding: 3px 8px; border-radius: 9999px; font-weight: 700; font-size: 8.5px;">
+              Exported: ${new Date().toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+
+        <!-- EXECUTIVE PROFIT & LOSS (P&L) FLOW SUMMARY -->
+        <div style="background: #f8fafc; border: 1.5px solid ${isProfit ? '#10b981' : '#f43f5e'}; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <strong style="font-size: 11px; text-transform: uppercase; color: #0f172a;">Weekly Profit & Loss (P&L) Flow Summary</strong>
+            <span style="background: ${isProfit ? '#ecfdf5' : '#fff1f2'}; color: ${isProfit ? '#047857' : '#be123c'}; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid ${isProfit ? '#a7f3d0' : '#fecdd3'};">
+              ${isProfit ? 'NET PROFIT: +₹' + weeklyNetProfit.toLocaleString() : 'NET LOSS: -₹' + Math.abs(weeklyNetProfit).toLocaleString()}
+            </span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 5px; text-align: center;">
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:4px 5px; border-radius:4px;">
+              <div style="font-size:7.5px; text-transform:uppercase; color:#64748b; font-weight:600;">(+) Client Inflow</div>
+              <div style="font-size:10.5px; font-weight:800; color:#059669;">₹${totalClientReceivedThisWeek.toLocaleString()}</div>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:4px 5px; border-radius:4px;">
+              <div style="font-size:7.5px; text-transform:uppercase; color:#64748b; font-weight:600;">(-) Labor Wages</div>
+              <div style="font-size:10.5px; font-weight:800; color:#4338ca;">₹${totalWeeklyLaborPayout.toLocaleString()}</div>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:4px 5px; border-radius:4px;">
+              <div style="font-size:7.5px; text-transform:uppercase; color:#64748b; font-weight:600;">(-) Site Expenses</div>
+              <div style="font-size:10.5px; font-weight:800; color:#e11d48;">₹${totalSiteExpenses.toLocaleString()}</div>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:4px 5px; border-radius:4px;">
+              <div style="font-size:7.5px; text-transform:uppercase; color:#64748b; font-weight:600;">(-) Non-Site Overhead</div>
+              <div style="font-size:10.5px; font-weight:800; color:#e11d48;">₹${totalNonSiteExpenses.toLocaleString()}</div>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:4px 5px; border-radius:4px;">
+              <div style="font-size:7.5px; text-transform:uppercase; color:#64748b; font-weight:600;">(=) Total Outflow</div>
+              <div style="font-size:10.5px; font-weight:800; color:#b91c1c;">₹${totalWeeklyExpenses.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Attendance & Wages -->
+        <h3 style="font-size: 10.5px; text-transform: uppercase; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 6px 0 4px 0;">
+          1. Attendance & Worker Wage Matrix
+        </h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; border:1px solid #cbd5e1;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #475569; font-size: 8.5px; text-transform: uppercase;">
+              <th style="padding: 4px 5px; text-align: left; border:1px solid #cbd5e1;">Worker</th>
+              ${weekDates.map(d => `<th style="padding: 3px; text-align: center; border:1px solid #cbd5e1;">${d.dayLabel}<br><span style="font-size: 7px; color: #64748b;">${d.dateShort}</span></th>`).join('')}
+              <th style="padding: 4px 3px; text-align: center; border:1px solid #cbd5e1;">Days</th>
+              <th style="padding: 4px 3px; text-align: right; border:1px solid #cbd5e1;">Daily Rate</th>
+              <th style="padding: 4px 3px; text-align: right; border:1px solid #cbd5e1;">Total Earned</th>
+              <th style="padding: 4px 3px; text-align: right; border:1px solid #cbd5e1;">Paid This Week</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${attendanceRowsHtml}
+          </tbody>
+          <tfoot>
+            <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
+              <td colspan="9" style="padding: 4px 6px; text-align: right; color: #334155; border:1px solid #cbd5e1;">Total Labor Wages:</td>
+              <td style="text-align: right; color: #4338ca; padding-right: 4px; border:1px solid #cbd5e1;">₹${totalWeeklyLaborPayout.toLocaleString()}</td>
+              <td style="text-align: right; color: #059669; padding-right: 4px; border:1px solid #cbd5e1;">₹${totalWeeklyLaborPaid.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- 2. Job Site Deployments -->
+        <h3 style="font-size: 10.5px; text-transform: uppercase; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 8px 0 4px 0;">
+          2. Job Site Deployments
+        </h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; border:1px solid #cbd5e1;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #475569; font-size: 8.5px; text-transform: uppercase;">
+              <th style="padding: 4px 6px; text-align: left; width: 28%; border:1px solid #cbd5e1;">Job Site / Client</th>
+              <th style="padding: 4px; text-align: center; width: 14%; border:1px solid #cbd5e1;">Active Days</th>
+              <th style="padding: 4px; text-align: center; width: 16%; border:1px solid #cbd5e1;">Total Worker-Days</th>
+              <th style="padding: 4px 6px; text-align: left; border:1px solid #cbd5e1;">Deployed Crew</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${siteRowsHtml}
+          </tbody>
+        </table>
+
+        <!-- 3. Money Received From Clients -->
+        <h3 style="font-size: 10.5px; text-transform: uppercase; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 8px 0 4px 0;">
+          3. Money Received From Clients (This Week)
+        </h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; border:1px solid #cbd5e1;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #475569; font-size: 8.5px; text-transform: uppercase;">
+              <th style="padding: 4px 6px; text-align: left; width: 25%; border:1px solid #cbd5e1;">Date Received</th>
+              <th style="padding: 4px 6px; text-align: left; border:1px solid #cbd5e1;">Job Site / Client</th>
+              <th style="padding: 4px 6px; text-align: right; width: 25%; border:1px solid #cbd5e1;">Amount Received (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clientPaymentsRowsHtml}
+          </tbody>
+          ${totalClientReceivedThisWeek > 0 ? `
+          <tfoot>
+            <tr style="background: #f8fafc; font-weight: 700; border-top: 1px solid #cbd5e1;">
+              <td colspan="2" style="padding: 4px 6px; text-align: right; border:1px solid #cbd5e1;">Total Cash Received:</td>
+              <td style="padding: 4px 6px; text-align: right; color: #059669; border:1px solid #cbd5e1;">+₹${totalClientReceivedThisWeek.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+          ` : ''}
+        </table>
+
+        <!-- 4. Site Extra Expenses -->
+        <h3 style="font-size: 10.5px; text-transform: uppercase; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 8px 0 4px 0;">
+          4. Job Site Extra Expenses (Materials, Transport, Equipment)
+        </h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; border:1px solid #cbd5e1;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #475569; font-size: 8.5px; text-transform: uppercase;">
+              <th style="padding: 4px 5px; text-align: left; width: 16%; border:1px solid #cbd5e1;">Date</th>
+              <th style="padding: 4px 5px; text-align: left; width: 22%; border:1px solid #cbd5e1;">Job Site</th>
+              <th style="padding: 4px 5px; text-align: left; width: 22%; border:1px solid #cbd5e1;">Category</th>
+              <th style="padding: 4px 5px; text-align: left; border:1px solid #cbd5e1;">Note / Details</th>
+              <th style="padding: 4px 5px; text-align: right; width: 18%; border:1px solid #cbd5e1;">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${siteExpenseRowsHtml}
+          </tbody>
+          ${totalSiteExpenses > 0 ? `
+          <tfoot>
+            <tr style="background: #f8fafc; font-weight: 700; border-top: 1px solid #cbd5e1;">
+              <td colspan="4" style="padding: 4px 6px; text-align: right; border:1px solid #cbd5e1;">Total Site Expenses:</td>
+              <td style="padding: 4px 6px; text-align: right; color: #e11d48; border:1px solid #cbd5e1;">-₹${totalSiteExpenses.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+          ` : ''}
+        </table>
+
+        <!-- 5. Non-Site / General Overhead Expenses -->
+        <h3 style="font-size: 10.5px; text-transform: uppercase; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin: 8px 0 4px 0;">
+          5. General Non-Site Overhead & Company Expenses
+        </h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; border:1px solid #cbd5e1;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #475569; font-size: 8.5px; text-transform: uppercase;">
+              <th style="padding: 4px 5px; text-align: left; width: 18%; border:1px solid #cbd5e1;">Date</th>
+              <th style="padding: 4px 5px; text-align: left; width: 24%; border:1px solid #cbd5e1;">Category</th>
+              <th style="padding: 4px 5px; text-align: left; border:1px solid #cbd5e1;">Note / Description</th>
+              <th style="padding: 4px 5px; text-align: right; width: 18%; border:1px solid #cbd5e1;">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${nonSiteExpenseRowsHtml}
+          </tbody>
+          ${totalNonSiteExpenses > 0 ? `
+          <tfoot>
+            <tr style="background: #f8fafc; font-weight: 700; border-top: 1px solid #cbd5e1;">
+              <td colspan="3" style="padding: 4px 6px; text-align: right; border:1px solid #cbd5e1;">Total Non-Site Overhead:</td>
+              <td style="padding: 4px 6px; text-align: right; color: #e11d48; border:1px solid #cbd5e1;">-₹${totalNonSiteExpenses.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+          ` : ''}
+        </table>
+      `;
+
+      const options = {
+        margin: [6, 6, 6, 6],
+        filename: `Weekly_Report_${state.summaryStartOfWeek}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      showToast("Generating PDF report...");
+      html2pdf().set(options).from(reportContainer).save().then(() => {
+        showToast("PDF report downloaded!");
+      }).catch(err => {
+        console.error("PDF Export failed", err);
+        alert("Could not generate PDF. Please check browser permissions.");
+      });
     }
 
     document.getElementById("exportJobFinancialMasterCSVBtn").addEventListener("click", exportJobFinancialMasterCSV);
@@ -4895,6 +5317,7 @@
     document.getElementById("exportBackupBtn").addEventListener("click", exportJSONBackup);
     document.getElementById("exportCSVBtn").addEventListener("click", exportAllCSVFile);
     document.getElementById("exportWeeklySummaryCSVBtn").addEventListener("click", exportWeeklyCSV);
+    document.getElementById("exportWeeklyPDFBtn").addEventListener("click", exportWeeklySummaryPDF); // <-- ADD HERE
     document.getElementById("wipeDatabaseBtn").addEventListener("click", wipeDatabase);
 
     const backupFileInput = document.getElementById("importBackupFileInput");
