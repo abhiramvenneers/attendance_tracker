@@ -4365,20 +4365,23 @@
         const localPayload = {
           workers: state.workers,
           locations: state.locations,
-          attendance: state.attendance
+          attendance: state.attendance,
+          overallExpenses: state.overallExpenses || []
         };
 
         const localStr = JSON.stringify(localPayload);
         const cloudStr = JSON.stringify({
           workers: cloudData.workers || [],
           locations: cloudData.locations || [],
-          attendance: cloudData.attendance || {}
+          attendance: cloudData.attendance || {},
+          overallExpenses: cloudData.overallExpenses || []
         });
 
         if (localStr !== cloudStr) {
           state.workers = cloudData.workers || [];
           state.locations = cloudData.locations || [];
           state.attendance = cloudData.attendance || {};
+          state.overallExpenses = cloudData.overallExpenses || [];
 
           migrateLegacyData();
           localStorage.setItem("crew_attendance_data", JSON.stringify(localPayload));
@@ -4399,6 +4402,7 @@
         workers: state.workers,
         locations: state.locations,
         attendance: state.attendance,
+        overallExpenses: state.overallExpenses || [],
         lastUpdated: Date.now()
       };
 
@@ -4468,6 +4472,7 @@
         workers: state.workers,
         locations: state.locations,
         attendance: state.attendance,
+        overallExpenses: state.overallExpenses || [],
         exportedAt: new Date().toISOString()
       };
 
